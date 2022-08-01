@@ -24,16 +24,15 @@ mod tests {
 
     #[test]
     fn test_verifier_without_public_inputs() -> Result<()> {
-        let config = CircuitConfig::standard_recursion_config();
-
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
+        let config = CircuitConfig::standard_recursion_config();
 
-        let num_dummy_gates = 1000;
-        info!("Constructing proof with {} gates", num_dummy_gates);
+        const NUM_DUMMY_GATES: usize = 1000;
+        info!("Constructing proof with {} gates", NUM_DUMMY_GATES);
         let mut builder = CircuitBuilder::<F, D>::new(config.clone());
-        for _ in 0..num_dummy_gates {
+        for _ in 0..NUM_DUMMY_GATES {
             builder.add_gate(NoopGate, vec![]);
         }
         builder.print_gate_counts(0);
