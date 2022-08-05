@@ -7,7 +7,7 @@ import "hardhat/console.sol";
 contract Plonky2Verifier {
     bytes32 constant sigmas_cap = $SIGMA_CAP;
 
-    function verify() public {
+    function verify() public view {
         console.logBytes32(sigmas_cap);
     }
 }
