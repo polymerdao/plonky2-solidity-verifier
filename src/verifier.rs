@@ -55,6 +55,7 @@ mod tests {
     };
     use std::fs::File;
     use std::io::Write;
+    use std::path::Path;
 
     #[test]
     fn test_verifier_without_public_inputs() -> Result<()> {
@@ -81,8 +82,15 @@ mod tests {
 
         let (contract, status) = generate_solidity_verifier(data.common, data.verifier_only);
 
-        let mut file = File::create("./contract/contracts/Verifier.sol")?;
-        file.write_all(contract.as_bytes())?;
+        let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
+        sol_file.write_all(contract.as_bytes())?;
+
+        if !Path::new("./contract/test/data").is_dir() {
+            std::fs::create_dir("./contract/test/data")?;
+        }
+
+        let mut proof_file = File::create("./contract/test/data/proof.bin")?;
+        proof_file.write_all(&*proof.to_bytes()?)?;
         status
     }
 }
