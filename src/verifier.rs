@@ -3,17 +3,36 @@ use plonky2::field::extension::Extendable;
 use plonky2::hash::hash_types::RichField;
 use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
 use plonky2::plonk::config::GenericConfig;
+use plonky2::plonk::config::GenericHashOut;
 
-pub fn generate_solidity_verifier<F: RichField + Extendable<D>, C: GenericConfig<D, F=F>, const D: usize>(
+pub fn generate_solidity_verifier<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
     common: CommonCircuitData<F, C, D>,
-    verifier_only: VerifierOnlyCircuitData<C, D>) -> (String, Result<()>) {
+    verifier_only: VerifierOnlyCircuitData<C, D>,
+) -> (String, Result<()>) {
     println!("Generating solidity verifier files ...");
 
     // Load template contract
     let mut contract = std::fs::read_to_string("./src/template.sol")
         .expect("Something went wrong reading the file");
 
-    contract = contract.replace("$SIGMA_CAP","0xe1629b9dda060bb30c7908346f6af189c16773fa148d3366701fbaa35d54f3c8");
+    let sigma_cap_count = 1 << common.config.fri_config.cap_height;
+    contract = contract.replace("$SIGMA_CAP_COUNT", &*sigma_cap_count.to_string());
+
+    let mut sigma_cap_str = "".to_owned();
+    for i in 0..sigma_cap_count {
+        let cap = verifier_only.constants_sigmas_cap.0[i];
+        let hash_vec = cap.to_bytes();
+        let mut hash = "".to_owned();
+        for b in &hash_vec {
+            hash += &format!("{:#04x}", b)[2..4];
+        }
+        sigma_cap_str += &*("        sc[".to_owned() + &*i.to_string() + "] = 0x" + &*hash + ";\n");
+    }
+    contract = contract.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
 
     (contract, Ok(()))
 }
