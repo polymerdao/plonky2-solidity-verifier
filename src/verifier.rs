@@ -1,9 +1,82 @@
 use anyhow::Result;
+use log::Level;
 use plonky2::field::extension::Extendable;
+use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
-use plonky2::plonk::config::GenericConfig;
+use plonky2::iop::witness::{PartialWitness, Witness};
+use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::plonk::circuit_data::{
+    CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+};
 use plonky2::plonk::config::GenericHashOut;
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::proof::ProofWithPublicInputs;
+use plonky2::plonk::prover::prove;
+use plonky2::util::timing::TimingTree;
+
+fn recursive_proof<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    InnerC: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    inner_proof: ProofWithPublicInputs<F, InnerC, D>,
+    inner_vd: VerifierOnlyCircuitData<InnerC, D>,
+    inner_cd: CommonCircuitData<F, InnerC, D>,
+    config: &CircuitConfig,
+    min_degree_bits: Option<usize>,
+    print_gate_counts: bool,
+    print_timing: bool,
+) -> Result<(
+    ProofWithPublicInputs<F, C, D>,
+    VerifierOnlyCircuitData<C, D>,
+    CommonCircuitData<F, C, D>,
+)>
+where
+    InnerC::Hasher: AlgebraicHasher<F>,
+    [(); C::Hasher::HASH_SIZE]:,
+{
+    let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+    let mut pw = PartialWitness::new();
+    let pt = builder.add_virtual_proof_with_pis(&inner_cd);
+    pw.set_proof_with_pis_target(&pt, &inner_proof);
+
+    let inner_data = VerifierCircuitTarget {
+        constants_sigmas_cap: builder.add_virtual_cap(inner_cd.config.fri_config.cap_height),
+    };
+    pw.set_cap_target(
+        &inner_data.constants_sigmas_cap,
+        &inner_vd.constants_sigmas_cap,
+    );
+
+    builder.verify_proof(pt, &inner_data, &inner_cd);
+
+    if print_gate_counts {
+        builder.print_gate_counts(0);
+    }
+
+    if let Some(min_degree_bits) = min_degree_bits {
+        // We don't want to pad all the way up to 2^min_degree_bits, as the builder will add a
+        // few special gates afterward. So just pad to 2^(min_degree_bits - 1) + 1. Then the
+        // builder will pad to the next power of two, 2^min_degree_bits.
+        let min_gates = (1 << (min_degree_bits - 1)) + 1;
+        for _ in builder.num_gates()..min_gates {
+            builder.add_gate(NoopGate, vec![]);
+        }
+    }
+
+    let data = builder.build::<C>();
+
+    let mut timing = TimingTree::new("prove", Level::Debug);
+    let proof = prove(&data.prover_only, &data.common, pw, &mut timing)?;
+    if print_timing {
+        timing.print();
+    }
+
+    data.verify(proof.clone())?;
+
+    Ok((proof, data.verifier_only, data.common))
+}
 
 pub fn generate_solidity_verifier<
     F: RichField + Extendable<D>,
@@ -85,7 +158,9 @@ mod tests {
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
 
-        let proof_base64 = base64::encode(proof.to_bytes()?);
+        let proof_bytes = proof.to_bytes()?;
+        println!("proof size: {}", proof_bytes.len());
+        let proof_base64 = base64::encode(proof_bytes);
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
 
         if !Path::new("./contract/test/data").is_dir() {

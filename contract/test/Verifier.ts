@@ -10,7 +10,8 @@ describe("Verifier", function () {
             const verifier = await Verifier.deploy();
 
             const view = Buffer.from(proof[0], 'base64');
-            expect(verifier.verify(Array.from(view)), "");
+            console.log("proof size: " + view.length);
+            expect(await verifier.verify(Array.from(view))).to.equal(true);
         });
     });
 });
