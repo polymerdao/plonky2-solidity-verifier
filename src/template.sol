@@ -11,9 +11,11 @@ contract Plonky2Verifier {
         $SET_SIGMA_CAP;
     }
 
-    function verify() public view {
+    function verify(uint8[] memory proof_with_public_inputs) public view returns (bool) {
         bytes32[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         console.logBytes32(sc[0]);
         console.logBytes32(sc[SIGMAS_CAP_COUNT-1]);
+        console.log(proof_with_public_inputs.length);
+        return true;
     }
 }

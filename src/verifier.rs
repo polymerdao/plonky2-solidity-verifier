@@ -85,12 +85,15 @@ mod tests {
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
 
+        let proof_base64 = base64::encode(proof.to_bytes()?);
+        let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
+
         if !Path::new("./contract/test/data").is_dir() {
             std::fs::create_dir("./contract/test/data")?;
         }
 
-        let mut proof_file = File::create("./contract/test/data/proof.bin")?;
-        proof_file.write_all(&*proof.to_bytes()?)?;
+        let mut proof_file = File::create("./contract/test/data/proof.json")?;
+        proof_file.write_all(proof_json.as_bytes())?;
         status
     }
 }
