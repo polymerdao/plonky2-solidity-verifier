@@ -112,9 +112,12 @@ pub fn generate_solidity_verifier<
 
 #[cfg(test)]
 mod tests {
-    use crate::verifier::generate_solidity_verifier;
+    use crate::verifier::{generate_solidity_verifier, recursive_proof};
     use anyhow::Result;
     use log::{info, Level};
+    use plonky2::fri::reduction_strategies::FriReductionStrategy;
+    use plonky2::fri::FriConfig;
+    use plonky2::plonk::config::KeccakGoldilocksConfig;
     use plonky2::{
         gates::noop::NoopGate,
         iop::witness::PartialWitness,
@@ -135,11 +138,12 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        let config = CircuitConfig::standard_recursion_config();
+        type KC = KeccakGoldilocksConfig;
+        let standard_config = CircuitConfig::standard_recursion_config();
 
-        const NUM_DUMMY_GATES: usize = 1000;
+        const NUM_DUMMY_GATES: usize = 4000;
         info!("Constructing proof with {} gates", NUM_DUMMY_GATES);
-        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        let mut builder = CircuitBuilder::<F, D>::new(standard_config.clone());
         for _ in 0..NUM_DUMMY_GATES {
             builder.add_gate(NoopGate, vec![]);
         }
@@ -152,8 +156,36 @@ mod tests {
         let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
         timing.print();
         data.verify(proof.clone())?;
+        let vd = data.verifier_only;
+        let cd = data.common;
 
-        let (contract, status) = generate_solidity_verifier(data.common, data.verifier_only);
+        // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
+        let high_rate_config = CircuitConfig {
+            fri_config: FriConfig {
+                rate_bits: 7,
+                proof_of_work_bits: 16,
+                num_query_rounds: 12,
+                ..standard_config.fri_config.clone()
+            },
+            ..standard_config
+        };
+
+        // A final proof, optimized for size.
+        let final_config = CircuitConfig {
+            num_routed_wires: 37,
+            fri_config: FriConfig {
+                rate_bits: 8,
+                cap_height: 0,
+                proof_of_work_bits: 20,
+                reduction_strategy: FriReductionStrategy::MinSize(None),
+                num_query_rounds: 10,
+            },
+            ..high_rate_config
+        };
+        let (proof, vd, cd) =
+            recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
+
+        let (contract, status) = generate_solidity_verifier(cd, vd);
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
