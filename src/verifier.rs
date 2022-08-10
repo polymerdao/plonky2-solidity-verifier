@@ -13,6 +13,7 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
+use serde::Serialize;
 
 fn recursive_proof<
     F: RichField + Extendable<D>,
@@ -78,13 +79,45 @@ where
     Ok((proof, data.verifier_only, data.common))
 }
 
+#[derive(Serialize)]
+pub struct ProofWithPublicInputsJson {
+    wires_cap: String,
+    plonk_zs_partial_products_cap: String,
+    quotient_polys_cap: String,
+    openings: String,
+    opening_proof: String,
+    public_inputs: String,
+}
+
+pub fn generate_proof_json<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    proof: ProofWithPublicInputs<F, C, D>,
+    cd: &CommonCircuitData<F, C, D>,
+    vd: &VerifierOnlyCircuitData<C, D>,
+) -> (String, Result<()>) {
+    let res = ProofWithPublicInputsJson {
+        wires_cap: "".to_string(),
+        plonk_zs_partial_products_cap: "".to_string(),
+        quotient_polys_cap: "".to_string(),
+        openings: "".to_string(),
+        opening_proof: "".to_string(),
+        public_inputs: "".to_string(),
+    };
+    let payload = serde_json::to_string(&res).unwrap();
+
+    (payload, Ok(()))
+}
+
 pub fn generate_solidity_verifier<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    common: CommonCircuitData<F, C, D>,
-    verifier_only: VerifierOnlyCircuitData<C, D>,
+    common: &CommonCircuitData<F, C, D>,
+    verifier_only: &VerifierOnlyCircuitData<C, D>,
 ) -> (String, Result<()>) {
     println!("Generating solidity verifier files ...");
 
@@ -112,7 +145,7 @@ pub fn generate_solidity_verifier<
 
 #[cfg(test)]
 mod tests {
-    use crate::verifier::{generate_solidity_verifier, recursive_proof};
+    use crate::verifier::{generate_proof_json, generate_solidity_verifier, recursive_proof};
     use anyhow::Result;
     use log::{info, Level};
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
@@ -185,15 +218,16 @@ mod tests {
         let (proof, vd, cd) =
             recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
 
-        let (contract, status) = generate_solidity_verifier(cd, vd);
+        let (contract, _) = generate_solidity_verifier(&cd, &vd);
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
 
         let proof_bytes = proof.to_bytes()?;
         println!("proof size: {}", proof_bytes.len());
-        let proof_base64 = base64::encode(proof_bytes);
-        let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
+        //let proof_base64 = base64::encode(proof_bytes);
+        //let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
+        let (proof_json, status) = generate_proof_json(proof, &cd, &vd);
 
         if !Path::new("./contract/test/data").is_dir() {
             std::fs::create_dir("./contract/test/data")?;
@@ -201,6 +235,7 @@ mod tests {
 
         let mut proof_file = File::create("./contract/test/data/proof.json")?;
         proof_file.write_all(proof_json.as_bytes())?;
+
         status
     }
 }
