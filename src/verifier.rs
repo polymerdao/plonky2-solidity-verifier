@@ -9,8 +9,8 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{
     CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::config::GenericHashOut;
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
@@ -128,6 +128,12 @@ pub fn generate_verifier_config<
 ) -> anyhow::Result<VerifierConfig> {
     let proof = &pwpi.proof;
     assert_eq!(proof.opening_proof.query_round_proofs[0].steps.len(), 2);
+
+    let query_round_init_trees = &proof.opening_proof.query_round_proofs[0]
+        .initial_trees_proof
+        .evals_proofs;
+    let query_round_steps = &proof.opening_proof.query_round_proofs[0].steps;
+
     let conf = VerifierConfig {
         num_wires_cap: proof.wires_cap.0.len(),
         num_plonk_zs_partial_products_cap: proof.plonk_zs_partial_products_cap.0.len(),
@@ -144,64 +150,18 @@ pub fn generate_verifier_config<
         num_fri_commit_round: proof.opening_proof.commit_phase_merkle_caps.len(),
         fri_commit_merkle_cap_height: proof.opening_proof.commit_phase_merkle_caps[0].0.len(),
         num_fri_query_round: proof.opening_proof.query_round_proofs.len(),
-        num_fri_query_init_constants_sigmas_v: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .0
-            .len(),
-        num_fri_query_init_constants_sigmas_p: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[0]
-            .1
-            .siblings
-            .len(),
-        num_fri_query_init_wires_v: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[1]
-            .0
-            .len(),
-        num_fri_query_init_wires_p: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[1]
-            .1
-            .siblings
-            .len(),
-        num_fri_query_init_zs_partial_v: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[2]
-            .0
-            .len(),
-        num_fri_query_init_zs_partial_p: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[2]
-            .1
-            .siblings
-            .len(),
-        num_fri_query_init_quotient_v: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[3]
-            .0
-            .len(),
-        num_fri_query_init_quotient_p: proof.opening_proof.query_round_proofs[0]
-            .initial_trees_proof
-            .evals_proofs[3]
-            .1
-            .siblings
-            .len(),
-        num_fri_query_step0_v: proof.opening_proof.query_round_proofs[0].steps[0]
-            .evals
-            .len(),
-        num_fri_query_step0_p: proof.opening_proof.query_round_proofs[0].steps[0]
-            .merkle_proof
-            .siblings
-            .len(),
-        num_fri_query_step1_v: proof.opening_proof.query_round_proofs[0].steps[1]
-            .evals
-            .len(),
-        num_fri_query_step1_p: proof.opening_proof.query_round_proofs[0].steps[1]
-            .merkle_proof
-            .siblings
-            .len(),
+        num_fri_query_init_constants_sigmas_v: query_round_init_trees[0].0.len(),
+        num_fri_query_init_constants_sigmas_p: query_round_init_trees[0].1.siblings.len(),
+        num_fri_query_init_wires_v: query_round_init_trees[1].0.len(),
+        num_fri_query_init_wires_p: query_round_init_trees[1].1.siblings.len(),
+        num_fri_query_init_zs_partial_v: query_round_init_trees[2].0.len(),
+        num_fri_query_init_zs_partial_p: query_round_init_trees[2].1.siblings.len(),
+        num_fri_query_init_quotient_v: query_round_init_trees[3].0.len(),
+        num_fri_query_init_quotient_p: query_round_init_trees[3].1.siblings.len(),
+        num_fri_query_step0_v: query_round_steps[0].evals.len(),
+        num_fri_query_step0_p: query_round_steps[0].merkle_proof.siblings.len(),
+        num_fri_query_step1_v: query_round_steps[1].evals.len(),
+        num_fri_query_step1_p: query_round_steps[1].merkle_proof.siblings.len(),
         num_fri_final_poly_ext_v: proof.opening_proof.final_poly.coeffs.len(),
     };
     Ok(conf)
@@ -320,6 +280,9 @@ mod tests {
 
     use anyhow::Result;
     use log::{info, Level};
+    use plonky2::fri::reduction_strategies::FriReductionStrategy;
+    use plonky2::fri::FriConfig;
+    use plonky2::plonk::config::KeccakGoldilocksConfig;
     use plonky2::{
         gates::noop::NoopGate,
         iop::witness::PartialWitness,
@@ -331,14 +294,11 @@ mod tests {
         },
         util::timing::TimingTree,
     };
-    use plonky2::fri::FriConfig;
-    use plonky2::fri::reduction_strategies::FriReductionStrategy;
-    use plonky2::plonk::config::KeccakGoldilocksConfig;
 
     use crate::verifier::{
         generate_proof_base64, generate_solidity_verifier, generate_verifier_config,
         recursive_proof,
-        };
+    };
 
     #[test]
     fn test_verifier_without_public_inputs() -> Result<()> {
