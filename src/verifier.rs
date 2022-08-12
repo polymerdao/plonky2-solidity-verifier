@@ -1,6 +1,7 @@
 use anyhow::Result;
 use log::Level;
 use plonky2::field::extension::Extendable;
+use plonky2::field::types::Field;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
 use plonky2::iop::witness::{PartialWitness, Witness};
@@ -8,12 +9,11 @@ use plonky2::plonk::circuit_builder::CircuitBuilder;
 use plonky2::plonk::circuit_data::{
     CircuitConfig, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
 };
-use plonky2::plonk::config::GenericHashOut;
 use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::GenericHashOut;
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
-use serde::Serialize;
 
 fn recursive_proof<
     F: RichField + Extendable<D>,
@@ -79,36 +79,198 @@ where
     Ok((proof, data.verifier_only, data.common))
 }
 
-#[derive(Serialize)]
-pub struct ProofWithPublicInputsJson {
-    wires_cap: String,
-    plonk_zs_partial_products_cap: String,
-    quotient_polys_cap: String,
-    openings: String,
-    opening_proof: String,
-    public_inputs: String,
+pub struct VerifierConfig {
+    num_wires_cap: usize,
+    num_plonk_zs_partial_products_cap: usize,
+    num_quotient_polys_cap: usize,
+
+    // openings
+    num_openings_constants: usize,
+    num_openings_plonk_sigmas: usize,
+    num_openings_wires: usize,
+    num_openings_plonk_zs: usize,
+    num_openings_plonk_zs_next: usize,
+    num_openings_partial_products: usize,
+    num_openings_quotient_polys: usize,
+
+    // fri proof
+    // .commit phase
+    num_fri_commit_round: usize,
+    fri_commit_merkle_cap_height: usize,
+    // .query round
+    num_fri_query_round: usize,
+    // ..init
+    num_fri_query_init_constants_sigmas_v: usize,
+    num_fri_query_init_constants_sigmas_p: usize,
+    num_fri_query_init_wires_v: usize,
+    num_fri_query_init_wires_p: usize,
+    num_fri_query_init_zs_partial_v: usize,
+    num_fri_query_init_zs_partial_p: usize,
+    num_fri_query_init_quotient_v: usize,
+    num_fri_query_init_quotient_p: usize,
+    // ..steps
+    num_fri_query_step0_v: usize,
+    num_fri_query_step0_p: usize,
+    num_fri_query_step1_v: usize,
+    num_fri_query_step1_p: usize,
+    // .final poly
+    num_fri_final_poly_ext_v: usize,
+    // public inputs
 }
 
-pub fn generate_proof_json<
+// TODO: The input should be CommonCircuitData
+pub fn generate_verifier_config<
     F: RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
-    proof: ProofWithPublicInputs<F, C, D>,
-    cd: &CommonCircuitData<F, C, D>,
-    vd: &VerifierOnlyCircuitData<C, D>,
-) -> (String, Result<()>) {
-    let res = ProofWithPublicInputsJson {
-        wires_cap: "".to_string(),
-        plonk_zs_partial_products_cap: "".to_string(),
-        quotient_polys_cap: "".to_string(),
-        openings: "".to_string(),
-        opening_proof: "".to_string(),
-        public_inputs: "".to_string(),
-    };
-    let payload = serde_json::to_string(&res).unwrap();
+    pwpi: &ProofWithPublicInputs<F, C, D>,
+) -> anyhow::Result<VerifierConfig> {
+    let proof = &pwpi.proof;
+    assert_eq!(proof.opening_proof.query_round_proofs[0].steps.len(), 2);
+    let conf = VerifierConfig {
+        num_wires_cap: proof.wires_cap.0.len(),
+        num_plonk_zs_partial_products_cap: proof.plonk_zs_partial_products_cap.0.len(),
+        num_quotient_polys_cap: proof.quotient_polys_cap.0.len(),
 
-    (payload, Ok(()))
+        num_openings_constants: proof.openings.constants.len(),
+        num_openings_plonk_sigmas: proof.openings.plonk_sigmas.len(),
+        num_openings_wires: proof.openings.wires.len(),
+        num_openings_plonk_zs: proof.openings.plonk_zs.len(),
+        num_openings_plonk_zs_next: proof.openings.plonk_zs_next.len(),
+        num_openings_partial_products: proof.openings.partial_products.len(),
+        num_openings_quotient_polys: proof.openings.quotient_polys.len(),
+
+        num_fri_commit_round: proof.opening_proof.commit_phase_merkle_caps.len(),
+        fri_commit_merkle_cap_height: proof.opening_proof.commit_phase_merkle_caps[0].0.len(),
+        num_fri_query_round: proof.opening_proof.query_round_proofs.len(),
+        num_fri_query_init_constants_sigmas_v: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[0]
+            .0
+            .len(),
+        num_fri_query_init_constants_sigmas_p: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[0]
+            .1
+            .siblings
+            .len(),
+        num_fri_query_init_wires_v: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[1]
+            .0
+            .len(),
+        num_fri_query_init_wires_p: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[1]
+            .1
+            .siblings
+            .len(),
+        num_fri_query_init_zs_partial_v: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[2]
+            .0
+            .len(),
+        num_fri_query_init_zs_partial_p: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[2]
+            .1
+            .siblings
+            .len(),
+        num_fri_query_init_quotient_v: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[3]
+            .0
+            .len(),
+        num_fri_query_init_quotient_p: proof.opening_proof.query_round_proofs[0]
+            .initial_trees_proof
+            .evals_proofs[3]
+            .1
+            .siblings
+            .len(),
+        num_fri_query_step0_v: proof.opening_proof.query_round_proofs[0].steps[0]
+            .evals
+            .len(),
+        num_fri_query_step0_p: proof.opening_proof.query_round_proofs[0].steps[0]
+            .merkle_proof
+            .siblings
+            .len(),
+        num_fri_query_step1_v: proof.opening_proof.query_round_proofs[0].steps[1]
+            .evals
+            .len(),
+        num_fri_query_step1_p: proof.opening_proof.query_round_proofs[0].steps[1]
+            .merkle_proof
+            .siblings
+            .len(),
+        num_fri_final_poly_ext_v: proof.opening_proof.final_poly.coeffs.len(),
+    };
+    Ok(conf)
+}
+
+pub fn generate_proof_base64<
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+>(
+    pwpi: &ProofWithPublicInputs<F, C, D>,
+    conf: &VerifierConfig,
+) -> anyhow::Result<String> {
+    assert_eq!(pwpi.public_inputs.len(), 0);
+
+    const HASH_SIZE: usize = 25;
+    const FIELD_SIZE: usize = 8;
+    const EXT_FIELD_SIZE: usize = 16;
+    const MERKLE_LENGTH: usize = 1;
+
+    // 75
+    let mut proof_size: usize =
+        (conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap + conf.num_quotient_polys_cap)
+            * HASH_SIZE;
+
+    // 3355
+    proof_size += (conf.num_openings_constants
+        + conf.num_openings_plonk_sigmas
+        + conf.num_openings_wires
+        + conf.num_openings_plonk_zs
+        + conf.num_openings_plonk_zs_next
+        + conf.num_openings_partial_products
+        + conf.num_openings_quotient_polys)
+        * EXT_FIELD_SIZE;
+
+    // 3405
+    proof_size += (conf.num_fri_commit_round * conf.fri_commit_merkle_cap_height) * HASH_SIZE;
+    // 39685
+    proof_size += conf.num_fri_query_round
+        * ((conf.num_fri_query_init_constants_sigmas_v
+            + conf.num_fri_query_init_wires_v
+            + conf.num_fri_query_init_zs_partial_v
+            + conf.num_fri_query_init_quotient_v)
+            * FIELD_SIZE
+            + (conf.num_fri_query_init_constants_sigmas_p
+                + conf.num_fri_query_init_wires_p
+                + conf.num_fri_query_init_zs_partial_p
+                + conf.num_fri_query_init_quotient_p)
+                * HASH_SIZE
+            + MERKLE_LENGTH * 4);
+    // 50015
+    proof_size += conf.num_fri_query_round
+        * (conf.num_fri_query_step0_v * EXT_FIELD_SIZE
+            + conf.num_fri_query_step0_p * HASH_SIZE
+            + MERKLE_LENGTH
+            + conf.num_fri_query_step1_v * EXT_FIELD_SIZE
+            + conf.num_fri_query_step1_p * HASH_SIZE
+            + MERKLE_LENGTH);
+
+    // 51039
+    proof_size += conf.num_fri_final_poly_ext_v * EXT_FIELD_SIZE;
+
+    // 51047
+    proof_size += FIELD_SIZE;
+
+    let proof_bytes = pwpi.to_bytes()?;
+    assert_eq!(proof_bytes.len(), proof_size);
+
+    Ok(base64::encode(proof_bytes))
 }
 
 pub fn generate_solidity_verifier<
@@ -118,7 +280,14 @@ pub fn generate_solidity_verifier<
 >(
     common: &CommonCircuitData<F, C, D>,
     verifier_only: &VerifierOnlyCircuitData<C, D>,
-) -> (String, Result<()>) {
+) -> anyhow::Result<String> {
+    assert_eq!(
+        25,
+        C::Hasher::HASH_SIZE,
+        "Only support KeccakHash<25> right now"
+    );
+    assert_eq!(F::BITS, 64);
+    assert_eq!(F::Extension::BITS, 128);
     println!("Generating solidity verifier files ...");
 
     // Load template contract
@@ -140,17 +309,17 @@ pub fn generate_solidity_verifier<
     }
     contract = contract.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
 
-    (contract, Ok(()))
+    Ok(contract)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::verifier::{generate_proof_json, generate_solidity_verifier, recursive_proof};
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::Path;
+
     use anyhow::Result;
     use log::{info, Level};
-    use plonky2::fri::reduction_strategies::FriReductionStrategy;
-    use plonky2::fri::FriConfig;
-    use plonky2::plonk::config::KeccakGoldilocksConfig;
     use plonky2::{
         gates::noop::NoopGate,
         iop::witness::PartialWitness,
@@ -162,9 +331,14 @@ mod tests {
         },
         util::timing::TimingTree,
     };
-    use std::fs::File;
-    use std::io::Write;
-    use std::path::Path;
+    use plonky2::fri::FriConfig;
+    use plonky2::fri::reduction_strategies::FriReductionStrategy;
+    use plonky2::plonk::config::KeccakGoldilocksConfig;
+
+    use crate::verifier::{
+        generate_proof_base64, generate_solidity_verifier, generate_verifier_config,
+        recursive_proof,
+        };
 
     #[test]
     fn test_verifier_without_public_inputs() -> Result<()> {
@@ -218,16 +392,14 @@ mod tests {
         let (proof, vd, cd) =
             recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
 
-        let (contract, _) = generate_solidity_verifier(&cd, &vd);
+        let contract = generate_solidity_verifier(&cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
 
-        let proof_bytes = proof.to_bytes()?;
-        println!("proof size: {}", proof_bytes.len());
-        //let proof_base64 = base64::encode(proof_bytes);
-        //let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
-        let (proof_json, status) = generate_proof_json(proof, &cd, &vd);
+        let conf = generate_verifier_config(&proof)?;
+        let proof_base64 = generate_proof_base64(&proof, &conf)?;
+        let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
 
         if !Path::new("./contract/test/data").is_dir() {
             std::fs::create_dir("./contract/test/data")?;
@@ -236,6 +408,6 @@ mod tests {
         let mut proof_file = File::create("./contract/test/data/proof.json")?;
         proof_file.write_all(proof_json.as_bytes())?;
 
-        status
+        Ok(())
     }
 }
