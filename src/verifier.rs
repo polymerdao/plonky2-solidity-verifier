@@ -14,6 +14,7 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
+use serde::Serialize;
 
 fn recursive_proof<
     F: RichField + Extendable<D>,
@@ -79,7 +80,13 @@ where
     Ok((proof, data.verifier_only, data.common))
 }
 
+#[derive(Serialize)]
 pub struct VerifierConfig {
+    hash_size: usize,
+    field_size: usize,
+    ext_field_size: usize,
+    merkle_height_size: usize,
+
     num_wires_cap: usize,
     num_plonk_zs_partial_products_cap: usize,
     num_quotient_polys_cap: usize,
@@ -129,12 +136,22 @@ pub fn generate_verifier_config<
     let proof = &pwpi.proof;
     assert_eq!(proof.opening_proof.query_round_proofs[0].steps.len(), 2);
 
+    const HASH_SIZE: usize = 25;
+    const FIELD_SIZE: usize = 8;
+    const EXT_FIELD_SIZE: usize = 16;
+    const MERKLE_HEIGHT_SIZE: usize = 1;
+
     let query_round_init_trees = &proof.opening_proof.query_round_proofs[0]
         .initial_trees_proof
         .evals_proofs;
     let query_round_steps = &proof.opening_proof.query_round_proofs[0].steps;
 
     let conf = VerifierConfig {
+        hash_size: HASH_SIZE,
+        field_size: FIELD_SIZE,
+        ext_field_size: EXT_FIELD_SIZE,
+        merkle_height_size: MERKLE_HEIGHT_SIZE,
+
         num_wires_cap: proof.wires_cap.0.len(),
         num_plonk_zs_partial_products_cap: proof.plonk_zs_partial_products_cap.0.len(),
         num_quotient_polys_cap: proof.quotient_polys_cap.0.len(),
@@ -177,17 +194,12 @@ pub fn generate_proof_base64<
 ) -> anyhow::Result<String> {
     assert_eq!(pwpi.public_inputs.len(), 0);
 
-    const HASH_SIZE: usize = 25;
-    const FIELD_SIZE: usize = 8;
-    const EXT_FIELD_SIZE: usize = 16;
-    const MERKLE_LENGTH: usize = 1;
-
-    // 75
+    // total size: 75
     let mut proof_size: usize =
         (conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap + conf.num_quotient_polys_cap)
-            * HASH_SIZE;
+            * conf.hash_size;
 
-    // 3355
+    // total size: 3355
     proof_size += (conf.num_openings_constants
         + conf.num_openings_plonk_sigmas
         + conf.num_openings_wires
@@ -195,37 +207,37 @@ pub fn generate_proof_base64<
         + conf.num_openings_plonk_zs_next
         + conf.num_openings_partial_products
         + conf.num_openings_quotient_polys)
-        * EXT_FIELD_SIZE;
+        * conf.ext_field_size;
 
     // 3405
-    proof_size += (conf.num_fri_commit_round * conf.fri_commit_merkle_cap_height) * HASH_SIZE;
+    proof_size += (conf.num_fri_commit_round * conf.fri_commit_merkle_cap_height) * conf.hash_size;
     // 39685
     proof_size += conf.num_fri_query_round
         * ((conf.num_fri_query_init_constants_sigmas_v
             + conf.num_fri_query_init_wires_v
             + conf.num_fri_query_init_zs_partial_v
             + conf.num_fri_query_init_quotient_v)
-            * FIELD_SIZE
+            * conf.field_size
             + (conf.num_fri_query_init_constants_sigmas_p
                 + conf.num_fri_query_init_wires_p
                 + conf.num_fri_query_init_zs_partial_p
                 + conf.num_fri_query_init_quotient_p)
-                * HASH_SIZE
-            + MERKLE_LENGTH * 4);
+                * conf.hash_size
+            + conf.merkle_height_size * 4);
     // 50015
     proof_size += conf.num_fri_query_round
-        * (conf.num_fri_query_step0_v * EXT_FIELD_SIZE
-            + conf.num_fri_query_step0_p * HASH_SIZE
-            + MERKLE_LENGTH
-            + conf.num_fri_query_step1_v * EXT_FIELD_SIZE
-            + conf.num_fri_query_step1_p * HASH_SIZE
-            + MERKLE_LENGTH);
+        * (conf.num_fri_query_step0_v * conf.ext_field_size
+            + conf.num_fri_query_step0_p * conf.hash_size
+            + conf.merkle_height_size
+            + conf.num_fri_query_step1_v * conf.ext_field_size
+            + conf.num_fri_query_step1_p * conf.hash_size
+            + conf.merkle_height_size);
 
     // 51039
-    proof_size += conf.num_fri_final_poly_ext_v * EXT_FIELD_SIZE;
+    proof_size += conf.num_fri_final_poly_ext_v * conf.ext_field_size;
 
     // 51047
-    proof_size += FIELD_SIZE;
+    proof_size += conf.field_size;
 
     let proof_bytes = pwpi.to_bytes()?;
     assert_eq!(proof_bytes.len(), proof_size);
@@ -238,6 +250,7 @@ pub fn generate_solidity_verifier<
     C: GenericConfig<D, F = F>,
     const D: usize,
 >(
+    conf: &VerifierConfig,
     common: &CommonCircuitData<F, C, D>,
     verifier_only: &VerifierOnlyCircuitData<C, D>,
 ) -> anyhow::Result<String> {
@@ -262,12 +275,21 @@ pub fn generate_solidity_verifier<
         let cap = verifier_only.constants_sigmas_cap.0[i];
         let hash_vec = cap.to_bytes();
         let mut hash = "".to_owned();
-        for b in &hash_vec {
+        for b in &hash_vec[0..25] {
             hash += &format!("{:#04x}", b)[2..4];
         }
         sigma_cap_str += &*("        sc[".to_owned() + &*i.to_string() + "] = 0x" + &*hash + ";\n");
     }
     contract = contract.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
+    contract = contract.replace("$NUM_WIRES_CAP", &*conf.num_wires_cap.to_string());
+    contract = contract.replace(
+        "$NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP",
+        &*conf.num_plonk_zs_partial_products_cap.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_QUOTIENT_POLYS_CAP",
+        &*conf.num_quotient_polys_cap.to_string(),
+    );
 
     Ok(contract)
 }
@@ -352,12 +374,12 @@ mod tests {
         let (proof, vd, cd) =
             recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
 
-        let contract = generate_solidity_verifier(&cd, &vd)?;
+        let conf = generate_verifier_config(&proof)?;
+        let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
 
-        let conf = generate_verifier_config(&proof)?;
         let proof_base64 = generate_proof_base64(&proof, &conf)?;
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
 
@@ -367,6 +389,9 @@ mod tests {
 
         let mut proof_file = File::create("./contract/test/data/proof.json")?;
         proof_file.write_all(proof_json.as_bytes())?;
+
+        let mut conf_file = File::create("./contract/test/data/conf.json")?;
+        conf_file.write_all(serde_json::to_string(&conf)?.as_ref())?;
 
         Ok(())
     }
