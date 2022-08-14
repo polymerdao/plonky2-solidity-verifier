@@ -13,6 +13,11 @@ contract Plonky2Verifier {
 
     uint32 constant NUM_OPENINGS_CONSTANTS = $NUM_OPENINGS_CONSTANTS;
     uint32 constant NUM_OPENINGS_PLONK_SIGMAS = $NUM_OPENINGS_PLONK_SIGMAS;
+    uint32 constant NUM_OPENINGS_WIRES = $NUM_OPENINGS_WIRES;
+    uint32 constant NUM_OPENINGS_PLONK_ZS = $NUM_OPENINGS_PLONK_ZS0;
+    uint32 constant NUM_OPENINGS_PLONK_ZS_NEXT = $NUM_OPENINGS_PLONK_ZS_NEXT;
+    uint32 constant NUM_OPENINGS_PARTIAL_PRODUCTS = $NUM_OPENINGS_PARTIAL_PRODUCTS;
+    uint32 constant NUM_OPENINGS_QUOTIENT_POLYS = $NUM_OPENINGS_QUOTIENT_POLYS;
 
     struct Proof {
         bytes25[NUM_WIRES_CAP] wires_cap;
@@ -20,6 +25,11 @@ contract Plonky2Verifier {
         bytes25[NUM_QUOTIENT_POLYS_CAP] quotient_polys_cap;
         bytes16[NUM_OPENINGS_CONSTANTS] openings_constants;
         bytes16[NUM_OPENINGS_PLONK_SIGMAS] openings_plonk_sigmas;
+        bytes16[NUM_OPENINGS_WIRES] openings_wires;
+        bytes16[NUM_OPENINGS_PLONK_ZS] openings_plonk_zs;
+        bytes16[NUM_OPENINGS_PLONK_ZS_NEXT] openings_plonk_zs_next;
+        bytes16[NUM_OPENINGS_PARTIAL_PRODUCTS] openings_partial_products;
+        bytes16[NUM_OPENINGS_QUOTIENT_POLYS] openings_quotient_polys;
         uint8[] rest_bytes;
     }
 
@@ -32,7 +42,7 @@ contract Plonky2Verifier {
         console.logBytes25(sc[0]);
 
         console.logBytes25(proof_with_public_inputs.wires_cap[0]);
-        console.logBytes16(proof_with_public_inputs.openings_plonk_sigmas[0]);
+        console.logBytes16(proof_with_public_inputs.openings_quotient_polys[0]);
 
         console.log(proof_with_public_inputs.rest_bytes.length);
         return true;

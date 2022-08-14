@@ -256,7 +256,7 @@ pub fn generate_proof_base64<
     println!(
         "{}",
         encode_hex(
-            &pwpi.proof.openings.plonk_sigmas[0].to_basefield_array()[0]
+            &pwpi.proof.openings.quotient_polys[0].to_basefield_array()[0]
                 .to_canonical_u64()
                 .to_le_bytes()
         )
@@ -264,7 +264,7 @@ pub fn generate_proof_base64<
     println!(
         "{}",
         encode_hex(
-            &pwpi.proof.openings.plonk_sigmas[0].to_basefield_array()[1]
+            &pwpi.proof.openings.quotient_polys[0].to_basefield_array()[1]
                 .to_canonical_u64()
                 .to_le_bytes()
         )
@@ -321,6 +321,23 @@ pub fn generate_solidity_verifier<
     contract = contract.replace(
         "$NUM_OPENINGS_PLONK_SIGMAS",
         &*conf.num_openings_plonk_sigmas.to_string(),
+    );
+    contract = contract.replace("$NUM_OPENINGS_WIRES", &*conf.num_openings_wires.to_string());
+    contract = contract.replace(
+        "$NUM_OPENINGS_PLONK_ZS0",
+        &*conf.num_openings_plonk_zs.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_OPENINGS_PLONK_ZS_NEXT",
+        &*conf.num_openings_plonk_zs_next.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_OPENINGS_PARTIAL_PRODUCTS",
+        &*conf.num_openings_partial_products.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_OPENINGS_QUOTIENT_POLYS",
+        &*conf.num_openings_quotient_polys.to_string(),
     );
 
     println!(

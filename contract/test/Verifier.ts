@@ -46,6 +46,25 @@ describe("Verifier", function () {
             let openings_plonk_sigmas = deserialize_vec(buf.subarray(pos, pos + openings_plonk_sigmas_size), conf.ext_field_size);
             pos += openings_plonk_sigmas_size;
 
+            let openings_wires_size = conf.num_openings_wires * conf.ext_field_size;
+            let openings_wires = deserialize_vec(buf.subarray(pos, pos + openings_wires_size), conf.ext_field_size);
+            pos += openings_wires_size;
+
+            let openings_plonk_zs_size = conf.num_openings_plonk_zs * conf.ext_field_size;
+            let openings_plonk_zs = deserialize_vec(buf.subarray(pos, pos + openings_plonk_zs_size), conf.ext_field_size);
+            pos += openings_plonk_zs_size;
+
+            let openings_plonk_zs_next_size = conf.num_openings_plonk_zs_next * conf.ext_field_size;
+            let openings_plonk_zs_next = deserialize_vec(buf.subarray(pos, pos + openings_plonk_zs_next_size), conf.ext_field_size);
+            pos += openings_plonk_zs_next_size;
+
+            let openings_partial_products_size = conf.num_openings_partial_products * conf.ext_field_size;
+            let openings_partial_products = deserialize_vec(buf.subarray(pos, pos + openings_partial_products_size), conf.ext_field_size);
+            pos += openings_partial_products_size;
+
+            let openings_quotient_polys_size = conf.num_openings_quotient_polys * conf.ext_field_size;
+            let openings_quotient_polys = deserialize_vec(buf.subarray(pos, pos + openings_quotient_polys_size), conf.ext_field_size);
+            pos += openings_quotient_polys_size;
 
             let input: Plonky2Verifier.ProofStruct = {
                 wires_cap: [wires_cap[0]],
@@ -54,6 +73,11 @@ describe("Verifier", function () {
                 openings_constants: [openings_constants[0], openings_constants[1],
                     openings_constants[2], openings_constants[3], openings_constants[4]],
                 openings_plonk_sigmas: openings_plonk_sigmas,
+                openings_wires: openings_wires,
+                openings_plonk_zs: [openings_plonk_zs[0], openings_plonk_zs[1]],
+                openings_plonk_zs_next: [openings_plonk_zs_next[0], openings_plonk_zs_next[1]],
+                openings_partial_products: openings_partial_products,
+                openings_quotient_polys: openings_quotient_polys,
                 rest_bytes: Array.from(buf.subarray(pos, buf.length - pos)),
             };
             expect(await verifier.verify(input)).to.equal(true);
