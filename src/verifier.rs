@@ -255,6 +255,10 @@ pub fn generate_proof_base64<
     println!("{}", encode_hex(&pwpi.proof.wires_cap.0[0].to_bytes()));
     println!(
         "{}",
+        encode_hex(&pwpi.proof.opening_proof.commit_phase_merkle_caps[0].0[0].to_bytes())
+    );
+    /*println!(
+        "{}",
         encode_hex(
             &pwpi.proof.openings.quotient_polys[0].to_basefield_array()[0]
                 .to_canonical_u64()
@@ -268,7 +272,7 @@ pub fn generate_proof_base64<
                 .to_canonical_u64()
                 .to_le_bytes()
         )
-    );
+    );*/
 
     Ok(base64::encode(proof_bytes))
 }
@@ -338,6 +342,26 @@ pub fn generate_solidity_verifier<
     contract = contract.replace(
         "$NUM_OPENINGS_QUOTIENT_POLYS",
         &*conf.num_openings_quotient_polys.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_COMMIT_ROUND",
+        &*conf.num_fri_commit_round.to_string(),
+    );
+    contract = contract.replace(
+        "$FRI_COMMIT_MERKLE_CAP_HEIGHT",
+        &*conf.fri_commit_merkle_cap_height.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_ROUND",
+        &*conf.num_fri_query_round.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V",
+        &*conf.num_fri_query_init_constants_sigmas_v.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P",
+        &*conf.num_fri_query_init_constants_sigmas_p.to_string(),
     );
 
     println!(

@@ -16,6 +16,21 @@ function deserialize_vec(buf: Buffer, size: number) {
     return res;
 }
 
+function deserialize_2d_vec(buf: Buffer, size: number, x0: number, x1: number) {
+    let res = [];
+    let pos = 0;
+    console.assert(size * x0 * x1 == buf.length);
+    for (let i = 0; i < x0; i++) {
+        let row = [];
+        for (let j = 0; j < x1; j++) {
+            row.push(buf.subarray(pos, pos + size));
+            pos += size;
+        }
+        res.push(row);
+    }
+    return res;
+}
+
 describe("Verifier", function () {
     describe("Verify", function () {
         it("Should verify the proof", async function () {
@@ -66,6 +81,10 @@ describe("Verifier", function () {
             let openings_quotient_polys = deserialize_vec(buf.subarray(pos, pos + openings_quotient_polys_size), conf.ext_field_size);
             pos += openings_quotient_polys_size;
 
+            let commit_phase_merkle_caps_size = conf.num_fri_commit_round * conf.fri_commit_merkle_cap_height * conf.hash_size;
+            let commit_phase_merkle_caps = deserialize_2d_vec(buf.subarray(pos, pos + commit_phase_merkle_caps_size), conf.hash_size, conf.num_fri_commit_round, conf.fri_commit_merkle_cap_height);
+            pos += commit_phase_merkle_caps_size;
+
             let input: Plonky2Verifier.ProofStruct = {
                 wires_cap: [wires_cap[0]],
                 plonk_zs_partial_products_cap: [plonk_zs_partial_products_cap[0]],
@@ -78,6 +97,7 @@ describe("Verifier", function () {
                 openings_plonk_zs_next: [openings_plonk_zs_next[0], openings_plonk_zs_next[1]],
                 openings_partial_products: openings_partial_products,
                 openings_quotient_polys: openings_quotient_polys,
+                commit_phase_merkle_caps: [[commit_phase_merkle_caps[0][0], commit_phase_merkle_caps[1][0]]],
                 rest_bytes: Array.from(buf.subarray(pos, buf.length - pos)),
             };
             expect(await verifier.verify(input)).to.equal(true);
