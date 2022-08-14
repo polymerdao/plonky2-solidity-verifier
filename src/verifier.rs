@@ -1,6 +1,8 @@
+use std::fmt::Write;
+
 use anyhow::Result;
 use log::Level;
-use plonky2::field::extension::Extendable;
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
@@ -15,6 +17,14 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
 use serde::Serialize;
+
+pub fn encode_hex(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        write!(&mut s, "{:02x}", b).unwrap();
+    }
+    s
+}
 
 fn recursive_proof<
     F: RichField + Extendable<D>,
@@ -242,6 +252,24 @@ pub fn generate_proof_base64<
     let proof_bytes = pwpi.to_bytes()?;
     assert_eq!(proof_bytes.len(), proof_size);
 
+    println!("{}", encode_hex(&pwpi.proof.wires_cap.0[0].to_bytes()));
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.openings.plonk_sigmas[0].to_basefield_array()[0]
+                .to_canonical_u64()
+                .to_le_bytes()
+        )
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.openings.plonk_sigmas[0].to_basefield_array()[1]
+                .to_canonical_u64()
+                .to_le_bytes()
+        )
+    );
+
     Ok(base64::encode(proof_bytes))
 }
 
@@ -273,11 +301,7 @@ pub fn generate_solidity_verifier<
     let mut sigma_cap_str = "".to_owned();
     for i in 0..sigma_cap_count {
         let cap = verifier_only.constants_sigmas_cap.0[i];
-        let hash_vec = cap.to_bytes();
-        let mut hash = "".to_owned();
-        for b in &hash_vec[0..25] {
-            hash += &format!("{:#04x}", b)[2..4];
-        }
+        let hash = encode_hex(&cap.to_bytes());
         sigma_cap_str += &*("        sc[".to_owned() + &*i.to_string() + "] = 0x" + &*hash + ";\n");
     }
     contract = contract.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
@@ -289,6 +313,19 @@ pub fn generate_solidity_verifier<
     contract = contract.replace(
         "$NUM_QUOTIENT_POLYS_CAP",
         &*conf.num_quotient_polys_cap.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_OPENINGS_CONSTANTS",
+        &*conf.num_openings_constants.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_OPENINGS_PLONK_SIGMAS",
+        &*conf.num_openings_plonk_sigmas.to_string(),
+    );
+
+    println!(
+        "{}",
+        encode_hex(&verifier_only.constants_sigmas_cap.0[0].to_bytes())
     );
 
     Ok(contract)
