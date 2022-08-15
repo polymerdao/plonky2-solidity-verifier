@@ -255,10 +255,6 @@ pub fn generate_proof_base64<
     println!("{}", encode_hex(&pwpi.proof.wires_cap.0[0].to_bytes()));
     println!(
         "{}",
-        encode_hex(&pwpi.proof.opening_proof.commit_phase_merkle_caps[0].0[0].to_bytes())
-    );
-    /*println!(
-        "{}",
         encode_hex(
             &pwpi.proof.openings.quotient_polys[0].to_basefield_array()[0]
                 .to_canonical_u64()
@@ -272,8 +268,78 @@ pub fn generate_proof_base64<
                 .to_canonical_u64()
                 .to_le_bytes()
         )
-    );*/
-
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[0]
+                .0[0]
+                .to_canonical_u64()
+                .to_le_bytes()
+        )
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[0]
+                .1
+                .siblings[0]
+                .to_bytes()
+        )
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[3]
+                .0[0]
+                .to_canonical_u64()
+                .to_le_bytes()
+        )
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.opening_proof.query_round_proofs[0]
+                .initial_trees_proof
+                .evals_proofs[3]
+                .1
+                .siblings[0]
+                .to_bytes()
+        )
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.opening_proof.query_round_proofs[0].steps[1].evals[0].to_basefield_array()
+                [0]
+            .to_canonical_u64()
+            .to_le_bytes()
+        )
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.opening_proof.query_round_proofs[0].steps[1].evals[0].to_basefield_array()
+                [1]
+            .to_canonical_u64()
+            .to_le_bytes()
+        )
+    );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi.proof.opening_proof.query_round_proofs[0].steps[1]
+                .merkle_proof
+                .siblings[0]
+                .to_bytes()
+        )
+    );
     Ok(base64::encode(proof_bytes))
 }
 
@@ -362,6 +428,46 @@ pub fn generate_solidity_verifier<
     contract = contract.replace(
         "$NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P",
         &*conf.num_fri_query_init_constants_sigmas_p.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_WIRES_V",
+        &*conf.num_fri_query_init_wires_v.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_WIRES_P",
+        &*conf.num_fri_query_init_wires_p.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_ZS_PARTIAL_V",
+        &*conf.num_fri_query_init_zs_partial_v.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_ZS_PARTIAL_P",
+        &*conf.num_fri_query_init_zs_partial_p.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_QUOTIENT_V",
+        &*conf.num_fri_query_init_quotient_v.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_INIT_QUOTIENT_P",
+        &*conf.num_fri_query_init_quotient_p.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_STEP0_V",
+        &*conf.num_fri_query_step0_v.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_STEP0_P",
+        &*conf.num_fri_query_step0_p.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_STEP1_V",
+        &*conf.num_fri_query_step1_v.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_QUERY_STEP1_P",
+        &*conf.num_fri_query_step1_p.to_string(),
     );
 
     println!(

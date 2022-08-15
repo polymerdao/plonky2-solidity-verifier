@@ -24,6 +24,16 @@ contract Plonky2Verifier {
     uint32 constant NUM_FRI_QUERY_ROUND = $NUM_FRI_QUERY_ROUND;
     uint32 constant NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V = $NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V;
     uint32 constant NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P = $NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P;
+    uint32 constant NUM_FRI_QUERY_INIT_WIRES_V = $NUM_FRI_QUERY_INIT_WIRES_V;
+    uint32 constant NUM_FRI_QUERY_INIT_WIRES_P = $NUM_FRI_QUERY_INIT_WIRES_P;
+    uint32 constant NUM_FRI_QUERY_INIT_ZS_PARTIAL_V = $NUM_FRI_QUERY_INIT_ZS_PARTIAL_V;
+    uint32 constant NUM_FRI_QUERY_INIT_ZS_PARTIAL_P = $NUM_FRI_QUERY_INIT_ZS_PARTIAL_P;
+    uint32 constant NUM_FRI_QUERY_INIT_QUOTIENT_V = $NUM_FRI_QUERY_INIT_QUOTIENT_V;
+    uint32 constant NUM_FRI_QUERY_INIT_QUOTIENT_P = $NUM_FRI_QUERY_INIT_QUOTIENT_P;
+    uint32 constant NUM_FRI_QUERY_STEP0_V = $NUM_FRI_QUERY_STEP0_V;
+    uint32 constant NUM_FRI_QUERY_STEP0_P = $NUM_FRI_QUERY_STEP0_P;
+    uint32 constant NUM_FRI_QUERY_STEP1_V = $NUM_FRI_QUERY_STEP1_V;
+    uint32 constant NUM_FRI_QUERY_STEP1_P = $NUM_FRI_QUERY_STEP1_P;
 
     struct Proof {
         bytes25[NUM_WIRES_CAP] wires_cap;
@@ -38,7 +48,19 @@ contract Plonky2Verifier {
         bytes16[NUM_OPENINGS_PARTIAL_PRODUCTS] openings_partial_products;
         bytes16[NUM_OPENINGS_QUOTIENT_POLYS] openings_quotient_polys;
 
-        bytes25[NUM_FRI_COMMIT_ROUND][FRI_COMMIT_MERKLE_CAP_HEIGHT] commit_phase_merkle_caps;
+        bytes25[][] fri_commit_phase_merkle_caps;
+        bytes8[][] fri_query_init_constants_sigmas_v;
+        bytes25[][] fri_query_init_constants_sigmas_p;
+        bytes8[][] fri_query_init_wires_v;
+        bytes25[][] fri_query_init_wires_p;
+        bytes8[][] fri_query_init_zs_partial_v;
+        bytes25[][] fri_query_init_zs_partial_p;
+        bytes8[][] fri_query_init_quotient_v;
+        bytes25[][] fri_query_init_quotient_p;
+        bytes16[][] fri_query_step0_v;
+        bytes25[][] fri_query_step0_p;
+        bytes16[][] fri_query_step1_v;
+        bytes25[][] fri_query_step1_p;
 
         uint8[] rest_bytes;
     }
@@ -53,7 +75,14 @@ contract Plonky2Verifier {
 
         console.logBytes25(proof_with_public_inputs.wires_cap[0]);
 
-        console.logBytes25(proof_with_public_inputs.commit_phase_merkle_caps[0][0]);
+        console.logBytes16(proof_with_public_inputs.openings_quotient_polys[0]);
+        console.logBytes8(proof_with_public_inputs.fri_query_init_constants_sigmas_v[0][0]);
+        console.logBytes25(proof_with_public_inputs.fri_query_init_constants_sigmas_p[0][0]);
+        console.logBytes8(proof_with_public_inputs.fri_query_init_quotient_v[0][0]);
+        console.logBytes25(proof_with_public_inputs.fri_query_init_quotient_p[0][0]);
+        console.logBytes16(proof_with_public_inputs.fri_query_step1_v[0][0]);
+        console.logBytes25(proof_with_public_inputs.fri_query_step1_p[0][0]);
+        console.log(proof_with_public_inputs.rest_bytes.length);
         return true;
     }
 }
