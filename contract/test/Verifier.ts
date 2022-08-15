@@ -172,6 +172,15 @@ describe("Verifier", function () {
             }
             console.log("pos: " + pos.toString());
 
+            let fri_final_poly_ext_v_size = conf.num_fri_final_poly_ext_v * conf.ext_field_size;
+            let fri_final_poly_ext_v = deserialize_vec(buf.subarray(pos, pos + fri_final_poly_ext_v_size), conf.ext_field_size);
+            pos += fri_final_poly_ext_v_size;
+
+            let fri_pow_witness = buf.subarray(pos, pos + conf.field_size)
+            pos += conf.field_size;
+            console.assert(pos == buf.length);
+            console.log("pos: " + pos.toString());
+
             let input: Plonky2Verifier.ProofStruct = {
                 wires_cap: wires_cap,
                 plonk_zs_partial_products_cap: plonk_zs_partial_products_cap,
@@ -196,7 +205,8 @@ describe("Verifier", function () {
                 fri_query_step0_p: fri_query_step0_p,
                 fri_query_step1_v: fri_query_step1_v,
                 fri_query_step1_p: fri_query_step1_p,
-                rest_bytes: Array.from(buf.subarray(pos, buf.length - pos)),
+                fri_final_poly_ext_v: fri_final_poly_ext_v,
+                fri_pow_witness: fri_pow_witness,
             };
             expect(await verifier.verify(input)).to.equal(true);
         });

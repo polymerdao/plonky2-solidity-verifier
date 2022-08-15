@@ -340,6 +340,17 @@ pub fn generate_proof_base64<
                 .to_bytes()
         )
     );
+    println!(
+        "{}",
+        encode_hex(
+            &pwpi
+                .proof
+                .opening_proof
+                .pow_witness
+                .to_canonical_u64()
+                .to_le_bytes()
+        )
+    );
     Ok(base64::encode(proof_bytes))
 }
 
@@ -468,6 +479,10 @@ pub fn generate_solidity_verifier<
     contract = contract.replace(
         "$NUM_FRI_QUERY_STEP1_P",
         &*conf.num_fri_query_step1_p.to_string(),
+    );
+    contract = contract.replace(
+        "$NUM_FRI_FINAL_POLY_EXT_V",
+        &*conf.num_fri_final_poly_ext_v.to_string(),
     );
 
     println!(

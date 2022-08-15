@@ -34,6 +34,7 @@ contract Plonky2Verifier {
     uint32 constant NUM_FRI_QUERY_STEP0_P = $NUM_FRI_QUERY_STEP0_P;
     uint32 constant NUM_FRI_QUERY_STEP1_V = $NUM_FRI_QUERY_STEP1_V;
     uint32 constant NUM_FRI_QUERY_STEP1_P = $NUM_FRI_QUERY_STEP1_P;
+    uint32 constant NUM_FRI_FINAL_POLY_EXT_V = $NUM_FRI_FINAL_POLY_EXT_V;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -62,7 +63,8 @@ contract Plonky2Verifier {
         bytes16[][] fri_query_step1_v;
         bytes25[][] fri_query_step1_p;
 
-        uint8[] rest_bytes;
+        bytes16[] fri_final_poly_ext_v;
+        bytes8 fri_pow_witness;
     }
 
     function get_sigma_cap() internal pure returns (bytes25[SIGMAS_CAP_COUNT] memory sc) {
@@ -96,6 +98,8 @@ contract Plonky2Verifier {
         require(proof_with_public_inputs.fri_query_step1_v.length == NUM_FRI_QUERY_ROUND);
         require(proof_with_public_inputs.fri_query_step1_p.length == NUM_FRI_QUERY_ROUND);
 
+        require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
+
         console.logBytes25(sc[0]);
 
         console.logBytes25(proof_with_public_inputs.wires_cap[0]);
@@ -107,7 +111,7 @@ contract Plonky2Verifier {
         console.logBytes25(proof_with_public_inputs.fri_query_init_quotient_p[0][0]);
         console.logBytes16(proof_with_public_inputs.fri_query_step1_v[0][0]);
         console.logBytes25(proof_with_public_inputs.fri_query_step1_p[0][0]);
-        console.log(proof_with_public_inputs.rest_bytes.length);
+        console.logBytes8(proof_with_public_inputs.fri_pow_witness);
         return true;
     }
 }
