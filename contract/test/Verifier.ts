@@ -1,8 +1,6 @@
 import {expect} from "chai";
 import {ethers} from "hardhat";
 import {Plonky2Verifier} from "../typechain-types";
-import {PromiseOrValue} from "../typechain-types/common";
-import {BytesLike} from "ethers";
 
 const proof = require("./data/proof.json");
 const conf = require("./data/conf.json")
@@ -175,15 +173,14 @@ describe("Verifier", function () {
             console.log("pos: " + pos.toString());
 
             let input: Plonky2Verifier.ProofStruct = {
-                wires_cap: [wires_cap[0]],
-                plonk_zs_partial_products_cap: [plonk_zs_partial_products_cap[0]],
-                quotient_polys_cap: [quotient_polys_cap[0]],
-                openings_constants: [openings_constants[0], openings_constants[1],
-                    openings_constants[2], openings_constants[3], openings_constants[4]],
+                wires_cap: wires_cap,
+                plonk_zs_partial_products_cap: plonk_zs_partial_products_cap,
+                quotient_polys_cap: quotient_polys_cap,
+                openings_constants: openings_constants,
                 openings_plonk_sigmas: openings_plonk_sigmas,
                 openings_wires: openings_wires,
-                openings_plonk_zs: [openings_plonk_zs[0], openings_plonk_zs[1]],
-                openings_plonk_zs_next: [openings_plonk_zs_next[0], openings_plonk_zs_next[1]],
+                openings_plonk_zs: openings_plonk_zs,
+                openings_plonk_zs_next: openings_plonk_zs_next,
                 openings_partial_products: openings_partial_products,
                 openings_quotient_polys: openings_quotient_polys,
                 fri_commit_phase_merkle_caps: fri_commit_phase_merkle_caps,
