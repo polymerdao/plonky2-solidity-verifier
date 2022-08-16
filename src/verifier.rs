@@ -485,6 +485,18 @@ pub fn generate_solidity_verifier<
         &*conf.num_fri_final_poly_ext_v.to_string(),
     );
 
+    // TODO: This should also include an encoding of gate constraints.
+    let circuit_digest_parts = [
+        verifier_only.constants_sigmas_cap.flatten(),
+        vec![/* Add other circuit data here */],
+    ];
+    let circuit_digest = C::Hasher::hash_no_pad(&circuit_digest_parts.concat());
+
+    contract = contract.replace(
+        "$CIRCUIT_DIGEST",
+        &*("0x".to_owned() + &encode_hex(&circuit_digest.to_bytes()))
+    );
+
     println!(
         "{}",
         encode_hex(&verifier_only.constants_sigmas_cap.0[0].to_bytes())

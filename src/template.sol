@@ -36,6 +36,8 @@ contract Plonky2Verifier {
     uint32 constant NUM_FRI_QUERY_STEP1_P = $NUM_FRI_QUERY_STEP1_P;
     uint32 constant NUM_FRI_FINAL_POLY_EXT_V = $NUM_FRI_FINAL_POLY_EXT_V;
 
+    bytes25 constant CIRCUIT_DIGEST = $CIRCUIT_DIGEST;
+
     struct Proof {
         bytes25[] wires_cap;
         bytes25[] plonk_zs_partial_products_cap;
@@ -67,8 +69,32 @@ contract Plonky2Verifier {
         bytes8 fri_pow_witness;
     }
 
+    struct ProofChallenges {
+        bytes8[] plonk_betas;
+        bytes8[] plonk_gammas;
+        bytes8[] plonk_alphas;
+        bytes16[] plonk_zeta;
+        bytes16 fri_alpha;
+        bytes16[] fri_betas;
+        bytes8 fri_pow_response;
+        bytes8[] fri_query_indices;
+    }
+
     function get_sigma_cap() internal pure returns (bytes25[SIGMAS_CAP_COUNT] memory sc) {
         $SET_SIGMA_CAP;
+    }
+
+    uint32 constant SPONGE_RATE = 8;
+    uint32 constant SPONGE_CAPACITY = 4;
+
+    struct Challenger {
+        bytes8[] input_buf;
+        bytes8[] output_buf;
+        bool state;
+    }
+
+    function challenger_observe_hash() {
+
     }
 
     function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
