@@ -98,79 +98,66 @@ describe("Verifier", function () {
             let fri_query_step1_v = [];
             let fri_query_step1_p = [];
             for (let i = 0; i < conf.num_fri_query_round; ++i) {
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 let fri_query_init_constants_sigmas_v_size = conf.num_fri_query_init_constants_sigmas_v * conf.field_size;
                 fri_query_init_constants_sigmas_v.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_constants_sigmas_v_size), conf.field_size));
                 pos += fri_query_init_constants_sigmas_v_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 console.assert(conf.num_fri_query_init_constants_sigmas_p == buf.readUint8(pos));
                 pos++;
                 let fri_query_init_constants_sigmas_p_size = conf.num_fri_query_init_constants_sigmas_p * conf.hash_size;
                 fri_query_init_constants_sigmas_p.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_constants_sigmas_p_size), conf.hash_size));
                 pos += fri_query_init_constants_sigmas_p_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 let fri_query_init_wires_v_size = conf.num_fri_query_init_wires_v * conf.field_size;
                 fri_query_init_wires_v.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_wires_v_size), conf.field_size));
                 pos += fri_query_init_wires_v_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 console.assert(conf.num_fri_query_init_wires_p == buf.readUint8(pos));
                 pos++;
                 let fri_query_init_wires_p_size = conf.num_fri_query_init_wires_p * conf.hash_size;
                 fri_query_init_wires_p.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_wires_p_size), conf.hash_size));
                 pos += fri_query_init_wires_p_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 let fri_query_init_zs_partial_v_size = conf.num_fri_query_init_zs_partial_v * conf.field_size;
                 fri_query_init_zs_partial_v.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_zs_partial_v_size), conf.field_size));
                 pos += fri_query_init_zs_partial_v_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 console.assert(conf.num_fri_query_init_zs_partial_p == buf.readUint8(pos));
                 pos++;
                 let fri_query_init_zs_partial_p_size = conf.num_fri_query_init_zs_partial_p * conf.hash_size;
                 fri_query_init_zs_partial_p.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_zs_partial_p_size), conf.hash_size));
                 pos += fri_query_init_zs_partial_p_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 let fri_query_init_quotient_v_size = conf.num_fri_query_init_quotient_v * conf.field_size;
                 fri_query_init_quotient_v.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_quotient_v_size), conf.field_size));
                 pos += fri_query_init_quotient_v_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 console.assert(conf.num_fri_query_init_quotient_p == buf.readUint8(pos));
                 pos++;
                 let fri_query_init_quotient_p_size = conf.num_fri_query_init_quotient_p * conf.hash_size;
                 fri_query_init_quotient_p.push(deserialize_vec(buf.subarray(pos, pos + fri_query_init_quotient_p_size), conf.hash_size));
                 pos += fri_query_init_quotient_p_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 let fri_query_step0_v_size = conf.num_fri_query_step0_v * conf.ext_field_size;
                 fri_query_step0_v.push(deserialize_vec(buf.subarray(pos, pos + fri_query_step0_v_size), conf.ext_field_size));
                 pos += fri_query_step0_v_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 console.assert(conf.num_fri_query_step0_p == buf.readUint8(pos));
                 pos++;
                 let fri_query_step0_p_size = conf.num_fri_query_step0_p * conf.hash_size;
                 fri_query_step0_p.push(deserialize_vec(buf.subarray(pos, pos + fri_query_step0_p_size), conf.hash_size));
                 pos += fri_query_step0_p_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 let fri_query_step1_v_size = conf.num_fri_query_step1_v * conf.ext_field_size;
                 fri_query_step1_v.push(deserialize_vec(buf.subarray(pos, pos + fri_query_step1_v_size), conf.ext_field_size));
                 pos += fri_query_step1_v_size;
 
-                console.log("query_round: " + i.toString() + ", pos: " + pos.toString());
                 console.assert(conf.num_fri_query_step1_p == buf.readUint8(pos));
                 pos++;
                 let fri_query_step1_p_size = conf.num_fri_query_step1_p * conf.hash_size;
                 fri_query_step1_p.push(deserialize_vec(buf.subarray(pos, pos + fri_query_step1_p_size), conf.hash_size));
                 pos += fri_query_step1_p_size;
             }
-            console.log("pos: " + pos.toString());
 
             let fri_final_poly_ext_v_size = conf.num_fri_final_poly_ext_v * conf.ext_field_size;
             let fri_final_poly_ext_v = deserialize_vec(buf.subarray(pos, pos + fri_final_poly_ext_v_size), conf.ext_field_size);
@@ -179,34 +166,33 @@ describe("Verifier", function () {
             let fri_pow_witness = buf.subarray(pos, pos + conf.field_size)
             pos += conf.field_size;
             console.assert(pos == buf.length);
-            console.log("pos: " + pos.toString());
 
             let input: Plonky2Verifier.ProofStruct = {
-                wires_cap: wires_cap,
-                plonk_zs_partial_products_cap: plonk_zs_partial_products_cap,
-                quotient_polys_cap: quotient_polys_cap,
-                openings_constants: openings_constants,
-                openings_plonk_sigmas: openings_plonk_sigmas,
-                openings_wires: openings_wires,
-                openings_plonk_zs: openings_plonk_zs,
-                openings_plonk_zs_next: openings_plonk_zs_next,
-                openings_partial_products: openings_partial_products,
-                openings_quotient_polys: openings_quotient_polys,
-                fri_commit_phase_merkle_caps: fri_commit_phase_merkle_caps,
-                fri_query_init_constants_sigmas_v: fri_query_init_constants_sigmas_v,
-                fri_query_init_constants_sigmas_p: fri_query_init_constants_sigmas_p,
-                fri_query_init_wires_v: fri_query_init_wires_v,
-                fri_query_init_wires_p: fri_query_init_wires_p,
-                fri_query_init_zs_partial_v: fri_query_init_zs_partial_v,
-                fri_query_init_zs_partial_p: fri_query_init_zs_partial_p,
-                fri_query_init_quotient_v: fri_query_init_quotient_v,
-                fri_query_init_quotient_p: fri_query_init_quotient_p,
-                fri_query_step0_v: fri_query_step0_v,
-                fri_query_step0_p: fri_query_step0_p,
-                fri_query_step1_v: fri_query_step1_v,
-                fri_query_step1_p: fri_query_step1_p,
-                fri_final_poly_ext_v: fri_final_poly_ext_v,
-                fri_pow_witness: fri_pow_witness,
+                wires_cap,
+                plonk_zs_partial_products_cap,
+                quotient_polys_cap,
+                openings_constants,
+                openings_plonk_sigmas,
+                openings_wires,
+                openings_plonk_zs,
+                openings_plonk_zs_next,
+                openings_partial_products,
+                openings_quotient_polys,
+                fri_commit_phase_merkle_caps,
+                fri_query_init_constants_sigmas_v,
+                fri_query_init_constants_sigmas_p,
+                fri_query_init_wires_v,
+                fri_query_init_wires_p,
+                fri_query_init_zs_partial_v,
+                fri_query_init_zs_partial_p,
+                fri_query_init_quotient_v,
+                fri_query_init_quotient_p,
+                fri_query_step0_v,
+                fri_query_step0_p,
+                fri_query_step1_v,
+                fri_query_step1_p,
+                fri_final_poly_ext_v,
+                fri_pow_witness,
             };
             expect(await verifier.verify(input)).to.equal(true);
         });
