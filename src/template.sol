@@ -87,11 +87,12 @@ contract Plonky2Verifier {
 
     uint32 constant SPONGE_RATE = 8;
     uint32 constant SPONGE_CAPACITY = 4;
+    uint32 constant SPONGE_WIDTH = 12;
 
     struct Challenger {
         bytes8[] input_buf;
         bytes8[] output_buf;
-        bool sponge_state;
+        bytes8[SPONGE_WIDTH] sponge_state;
     }
 
     Challenger challenger;
@@ -105,24 +106,28 @@ contract Plonky2Verifier {
         return tempUint;
     }
 
-    function keccak_permutation(bytes8[] input) returns (bytes8[12] res) {
+    function keccak_permutation(bytes8[SPONGE_WIDTH] memory input) internal pure returns (bytes8[12] memory res) {
         bytes32 h = keccak256(abi.encodePacked(input));
         bytes32 hh = keccak256(abi.encodePacked(h));
         bytes32 hhh = keccak256(abi.encodePacked(hh));
 
-        bytes tmp = abi.encodePacked(h, hh, hhh);
+        bytes memory tmp = abi.encodePacked(h, hh, hhh);
         uint8 pos = 0;
 
         for (uint i = 0; i < 96; i += 8) {
             if (toUint64(tmp, i) < FIELD_ORDER) {
-                res[pos++] = bytes8(tmp[i : i + 8]);
+                bytes8 tempUint;
+                assembly {
+                    tempUint := mload(add(add(tmp, 0x8), i))
+                }
+                res[pos++] = tempUint;
             }
         }
 
         return res;
     }
 
-    function challenger_duplexing() {
+    function challenger_duplexing() internal {
         require(challenger.input_buf.length <= SPONGE_RATE);
         for (uint i = 0; i < challenger.input_buf.length; ++i) {
             challenger.sponge_state[i] = challenger.input_buf[i];
@@ -135,7 +140,7 @@ contract Plonky2Verifier {
         }
     }
 
-    function challenger_observe_element(bytes8 element) {
+    function challenger_observe_element(bytes8 element) internal {
         delete challenger.output_buf;
         challenger.input_buf.push(element);
         if (challenger.input_buf.length == SPONGE_RATE) {
@@ -143,7 +148,7 @@ contract Plonky2Verifier {
         }
     }
 
-    function challenger_observe_hash(bytes25 hash) {
+    function challenger_observe_hash(bytes25 hash) internal {
         bytes memory array = abi.encodePacked(hash);
         for (uint i = 0; i < 25; ++i) {
             challenger_observe_element(array[i]);
