@@ -484,6 +484,10 @@ pub fn generate_solidity_verifier<
         "$NUM_FRI_FINAL_POLY_EXT_V",
         &*conf.num_fri_final_poly_ext_v.to_string(),
     );
+    contract = contract.replace(
+        "$FIELD_ORDER",
+        &*F::ORDER.to_string(),
+    );
 
     // TODO: This should also include an encoding of gate constraints.
     let circuit_digest_parts = [

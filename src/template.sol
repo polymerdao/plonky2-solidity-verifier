@@ -36,6 +36,7 @@ contract Plonky2Verifier {
     uint32 constant NUM_FRI_QUERY_STEP1_P = $NUM_FRI_QUERY_STEP1_P;
     uint32 constant NUM_FRI_FINAL_POLY_EXT_V = $NUM_FRI_FINAL_POLY_EXT_V;
 
+    uint64 constant FIELD_ORDER = $FIELD_ORDER;
     bytes25 constant CIRCUIT_DIGEST = $CIRCUIT_DIGEST;
 
     struct Proof {
@@ -90,11 +91,63 @@ contract Plonky2Verifier {
     struct Challenger {
         bytes8[] input_buf;
         bytes8[] output_buf;
-        bool state;
+        bool sponge_state;
     }
 
-    function challenger_observe_hash() {
+    Challenger challenger;
 
+    function toUint64(bytes memory _bytes, uint256 _start) internal pure returns (uint64) {
+        require(_bytes.length >= _start + 8, "toUint64_outOfBounds");
+        uint64 tempUint;
+        assembly {
+            tempUint := mload(add(add(_bytes, 0x8), _start))
+        }
+        return tempUint;
+    }
+
+    function keccak_permutation(bytes8[] input) returns (bytes8[12] res) {
+        bytes32 h = keccak256(abi.encodePacked(input));
+        bytes32 hh = keccak256(abi.encodePacked(h));
+        bytes32 hhh = keccak256(abi.encodePacked(hh));
+
+        bytes tmp = abi.encodePacked(h, hh, hhh);
+        uint8 pos = 0;
+
+        for (uint i = 0; i < 96; i += 8) {
+            if (toUint64(tmp, i) < FIELD_ORDER) {
+                res[pos++] = bytes8(tmp[i : i + 8]);
+            }
+        }
+
+        return res;
+    }
+
+    function challenger_duplexing() {
+        require(challenger.input_buf.length <= SPONGE_RATE);
+        for (uint i = 0; i < challenger.input_buf.length; ++i) {
+            challenger.sponge_state[i] = challenger.input_buf[i];
+        }
+        delete challenger.input_buf;
+        challenger.sponge_state = keccak_permutation(challenger.sponge_state);
+        delete challenger.output_buf;
+        for (uint i = 0; i < challenger.sponge_state.length; ++i) {
+            challenger.output_buf.push(challenger.sponge_state[i]);
+        }
+    }
+
+    function challenger_observe_element(bytes8 element) {
+        delete challenger.output_buf;
+        challenger.input_buf.push(element);
+        if (challenger.input_buf.length == SPONGE_RATE) {
+            challenger_duplexing();
+        }
+    }
+
+    function challenger_observe_hash(bytes25 hash) {
+        bytes memory array = abi.encodePacked(hash);
+        for (uint i = 0; i < 25; ++i) {
+            challenger_observe_element(array[i]);
+        }
     }
 
     function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
