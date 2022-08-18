@@ -484,9 +484,10 @@ pub fn generate_solidity_verifier<
         "$NUM_FRI_FINAL_POLY_EXT_V",
         &*conf.num_fri_final_poly_ext_v.to_string(),
     );
+    contract = contract.replace("$FIELD_ORDER", &*F::ORDER.to_string());
     contract = contract.replace(
-        "$FIELD_ORDER",
-        &*F::ORDER.to_string(),
+        "$NUM_CHALLENGES",
+        &*common.config.num_challenges.to_string(),
     );
 
     // TODO: This should also include an encoding of gate constraints.
@@ -498,7 +499,7 @@ pub fn generate_solidity_verifier<
 
     contract = contract.replace(
         "$CIRCUIT_DIGEST",
-        &*("0x".to_owned() + &encode_hex(&circuit_digest.to_bytes()))
+        &*("0x".to_owned() + &encode_hex(&circuit_digest.to_bytes())),
     );
 
     println!(

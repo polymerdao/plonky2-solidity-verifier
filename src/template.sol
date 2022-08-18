@@ -38,6 +38,7 @@ contract Plonky2Verifier {
 
     uint64 constant FIELD_ORDER = $FIELD_ORDER;
     bytes25 constant CIRCUIT_DIGEST = $CIRCUIT_DIGEST;
+    uint32 constant NUM_CHALLENGES = $NUM_CHALLENGES;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -95,8 +96,6 @@ contract Plonky2Verifier {
         bytes8[SPONGE_WIDTH] sponge_state;
     }
 
-    Challenger challenger;
-
     function toUint64(bytes memory _bytes, uint256 _start) internal pure returns (uint64) {
         require(_bytes.length >= _start + 8, "toUint64_outOfBounds");
         uint64 tempUint;
@@ -114,7 +113,7 @@ contract Plonky2Verifier {
         bytes memory tmp = abi.encodePacked(h, hh, hhh);
         uint8 pos = 0;
 
-        for (uint i = 0; i < 96; i += 8) {
+        for (uint i = 0; i < 96; i = i + 8) {
             if (toUint64(tmp, i) < FIELD_ORDER) {
                 bytes8 tempUint;
                 assembly {
@@ -127,35 +126,78 @@ contract Plonky2Verifier {
         return res;
     }
 
-    function challenger_duplexing() internal {
+    function challenger_duplexing(Challenger memory challenger) internal pure {
         require(challenger.input_buf.length <= SPONGE_RATE);
-        for (uint i = 0; i < challenger.input_buf.length; ++i) {
+        for (uint i = 0; i < challenger.input_buf.length; i++) {
             challenger.sponge_state[i] = challenger.input_buf[i];
         }
         delete challenger.input_buf;
         challenger.sponge_state = keccak_permutation(challenger.sponge_state);
         delete challenger.output_buf;
-        for (uint i = 0; i < challenger.sponge_state.length; ++i) {
-            challenger.output_buf.push(challenger.sponge_state[i]);
+        challenger.output_buf = new bytes8[](challenger.sponge_state.length);
+        for (uint i = 0; i < challenger.sponge_state.length; i++) {
+            challenger.output_buf[i] = challenger.sponge_state[i];
         }
     }
 
-    function challenger_observe_element(bytes8 element) internal {
+    function challenger_observe_element(Challenger memory challenger, bytes8 element) internal pure {
         delete challenger.output_buf;
-        challenger.input_buf.push(element);
+        bytes8[] memory input = new bytes8[](challenger.input_buf.length + 1);
+        for (uint32 i = 0; i < input.length - 1; i++) {
+            input[i] = challenger.input_buf[i];
+        }
+        input[input.length - 1] = element;
+        delete challenger.input_buf;
+        challenger.input_buf = input;
         if (challenger.input_buf.length == SPONGE_RATE) {
-            challenger_duplexing();
+            challenger_duplexing(challenger);
         }
     }
 
-    function challenger_observe_hash(bytes25 hash) internal {
+    function challenger_observe_hash(Challenger memory challenger, bytes25 hash) internal pure {
         bytes memory array = abi.encodePacked(hash);
-        for (uint i = 0; i < 25; ++i) {
-            challenger_observe_element(array[i]);
+        for (uint i = 0; i < 25; i++) {
+            challenger_observe_element(challenger, array[i]);
         }
+    }
+
+    function challenger_get_challenge(Challenger memory challenger) internal pure returns (bytes8 res) {
+        if (challenger.input_buf.length > 0 || challenger.output_buf.length == 0) {
+            challenger_duplexing(challenger);
+        }
+        res = challenger.output_buf[challenger.output_buf.length - 1];
+        bytes8[] memory output = new bytes8[](challenger.output_buf.length - 1);
+        for (uint32 i = 0; i < output.length; i++) {
+            output[i] = challenger.output_buf[i];
+        }
+        delete challenger.output_buf;
+        challenger.output_buf = output;
+        return res;
+    }
+
+    function challenger_get_challenges(Challenger memory challenger, uint32 num) internal pure returns (bytes8[] memory) {
+        bytes8[] memory res = new bytes8[](num);
+        for (uint i = 0; i < num; i++) {
+            res[i] = challenger_get_challenge(challenger);
+        }
+        return res;
     }
 
     function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
+        Challenger memory challenger;
+        bytes25 input_hash = 0;
+        challenger_observe_hash(challenger, CIRCUIT_DIGEST);
+        challenger_observe_hash(challenger, input_hash);
+        for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
+            challenger_observe_hash(challenger, proof_with_public_inputs.wires_cap[i]);
+        }
+        bytes8[] memory plonk_betas = challenger_get_challenges(challenger, NUM_CHALLENGES);
+        bytes8[] memory plonk_gammas = challenger_get_challenges(challenger, NUM_CHALLENGES);
+        console.logBytes8(plonk_betas[0]);
+        console.logBytes8(plonk_betas[1]);
+        console.logBytes8(plonk_gammas[0]);
+        console.logBytes8(plonk_gammas[1]);
+
         bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         require(proof_with_public_inputs.wires_cap.length == NUM_WIRES_CAP);
         require(proof_with_public_inputs.plonk_zs_partial_products_cap.length == NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP);
