@@ -177,6 +177,13 @@ contract Plonky2Verifier {
         }
     }
 
+    function challenger_observe_extension(Challenger memory challenger, bytes16 ext) internal pure {
+        bytes8 element = bytes8(ext);
+        challenger_observe_element(challenger, element);
+        element = bytes8(ext << 64);
+        challenger_observe_element(challenger, element);
+    }
+
     function challenger_observe_hash(Challenger memory challenger, bytes25 hash) internal pure {
         bytes8 b0 = bytes8(hash);
         bytes8 b1 = bytes8(hash << 56);
@@ -230,6 +237,11 @@ contract Plonky2Verifier {
         return res;
     }
 
+    function get_extension_challenge(Challenger memory challenger) internal pure returns (uint64[2] memory res) {
+        res[0] = challenger_get_challenge(challenger);
+        res[1] = challenger_get_challenge(challenger);
+    }
+
     function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
         Challenger memory challenger;
         bytes25 input_hash = 0;
@@ -240,10 +252,48 @@ contract Plonky2Verifier {
         }
         uint64[] memory plonk_betas = challenger_get_challenges(challenger, NUM_CHALLENGES);
         uint64[] memory plonk_gammas = challenger_get_challenges(challenger, NUM_CHALLENGES);
+
+        for (uint32 i = 0; i < NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP; i++) {
+            challenger_observe_hash(challenger, proof_with_public_inputs.plonk_zs_partial_products_cap[i]);
+        }
+        uint64[] memory plonk_alphas = challenger_get_challenges(challenger, NUM_CHALLENGES);
         console.log(plonk_betas[0]);
-        console.log(plonk_betas[1]);
         console.log(plonk_gammas[0]);
-        console.log(plonk_gammas[1]);
+        console.log(plonk_alphas[0]);
+
+        for (uint32 i = 0; i < NUM_QUOTIENT_POLYS_CAP; i++) {
+            challenger_observe_hash(challenger, proof_with_public_inputs.quotient_polys_cap[i]);
+        }
+        uint64[2] memory plonk_zeta = get_extension_challenge(challenger);
+        console.log(plonk_zeta[0], plonk_zeta[1]);
+
+        for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.openings_constants[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_SIGMAS; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.openings_plonk_sigmas[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_WIRES; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.openings_wires[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.openings_plonk_zs[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PARTIAL_PRODUCTS; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.openings_partial_products[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_QUOTIENT_POLYS; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.openings_quotient_polys[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS_NEXT; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.openings_plonk_zs_next[i]);
+        }
+
+        // Fri Challenges
+        // uint64[2] memory fri_alpha
+        // uint64[][2] memory fri_betas
+        // uint64 fri_pow_response
+        // uint32[] fri_query_indices
 
         bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         require(proof_with_public_inputs.wires_cap.length == NUM_WIRES_CAP);
