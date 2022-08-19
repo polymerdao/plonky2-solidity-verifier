@@ -290,8 +290,17 @@ contract Plonky2Verifier {
         }
 
         // Fri Challenges
-        // uint64[2] memory fri_alpha
-        // uint64[][2] memory fri_betas
+        uint64[2] memory fri_alpha = get_extension_challenge(challenger);
+        console.log(fri_alpha[0], fri_alpha[1]);
+        uint64[NUM_FRI_COMMIT_ROUND][2] memory fri_betas;
+        for (uint32 i = 0; i < NUM_FRI_COMMIT_ROUND; i++) {
+            for (uint32 j = 0; j < FRI_COMMIT_MERKLE_CAP_HEIGHT; j++) {
+                challenger_observe_hash(challenger, proof_with_public_inputs.fri_commit_phase_merkle_caps[i][j]);
+            }
+            fri_betas[i] = get_extension_challenge(challenger);
+            console.log(fri_betas[i][0], fri_betas[i][1]);
+        }
+
         // uint64 fri_pow_response
         // uint32[] fri_query_indices
 
