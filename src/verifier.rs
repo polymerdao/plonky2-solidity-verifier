@@ -520,7 +520,6 @@ mod tests {
     use log::{info, Level};
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
     use plonky2::fri::FriConfig;
-    use plonky2::plonk::config::KeccakGoldilocksConfig;
     use plonky2::{
         gates::noop::NoopGate,
         iop::witness::PartialWitness,
@@ -533,6 +532,7 @@ mod tests {
         util::timing::TimingTree,
     };
 
+    use crate::config::KeccakGoldilocksConfig2;
     use crate::verifier::{
         generate_proof_base64, generate_solidity_verifier, generate_verifier_config,
         recursive_proof,
@@ -543,7 +543,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        type KC = KeccakGoldilocksConfig;
+        type KC2 = KeccakGoldilocksConfig2;
         let standard_config = CircuitConfig::standard_recursion_config();
 
         const NUM_DUMMY_GATES: usize = 4000;
@@ -588,7 +588,7 @@ mod tests {
             ..high_rate_config
         };
         let (proof, vd, cd) =
-            recursive_proof::<F, KC, C, D>(proof, vd, cd, &final_config, None, true, true)?;
+            recursive_proof::<F, KC2, C, D>(proof, vd, cd, &final_config, None, true, true)?;
 
         let conf = generate_verifier_config(&proof)?;
         let contract = generate_solidity_verifier(&conf, &cd, &vd)?;

@@ -242,6 +242,9 @@ contract Plonky2Verifier {
         res[1] = challenger_get_challenge(challenger);
     }
 
+    function get_fri_pow_response(Challenger memory challenger, bytes8 pow_witness) internal pure returns (uint64 res) {
+    }
+
     function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
         Challenger memory challenger;
         bytes25 input_hash = 0;
