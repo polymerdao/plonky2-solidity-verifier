@@ -75,7 +75,7 @@ mod tests {
     use crate::config::AlgebraicKeccakHash;
 
     #[test]
-    fn test_verifier_without_public_inputs() -> Result<()> {
+    fn test_algebraic_keccak() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;

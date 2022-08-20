@@ -502,6 +502,12 @@ pub fn generate_solidity_verifier<
         &*("0x".to_owned() + &encode_hex(&circuit_digest.to_bytes())),
     );
 
+    contract = contract.replace(
+        "$FRI_RATE_BITS",
+        &*common.config.fri_config.rate_bits.to_string(),
+    );
+    contract = contract.replace("$DEGREE_BITS", &*common.degree_bits.to_string());
+
     println!(
         "{}",
         encode_hex(&verifier_only.constants_sigmas_cap.0[0].to_bytes())

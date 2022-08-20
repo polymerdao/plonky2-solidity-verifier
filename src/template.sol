@@ -38,6 +38,8 @@ contract Plonky2Verifier {
 
     bytes25 constant CIRCUIT_DIGEST = $CIRCUIT_DIGEST;
     uint32 constant NUM_CHALLENGES = $NUM_CHALLENGES;
+    uint32 constant FRI_RATE_BITS = $FRI_RATE_BITS;
+    uint32 constant DEGREE_BITS = $DEGREE_BITS;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -135,18 +137,6 @@ contract Plonky2Verifier {
         }
 
         return res;
-    }
-
-    function log_input(Challenger memory challenger) internal view {
-        for (uint i = 0; i < challenger.input_buf.length; i++) {
-            console.logBytes8(challenger.input_buf[i]);
-        }
-    }
-
-    function log_sponge_state(Challenger memory challenger) internal view {
-        for (uint i = 0; i < 12; i++) {
-            console.logBytes8(challenger.sponge_state[i]);
-        }
     }
 
     function challenger_duplexing(Challenger memory challenger) internal pure {
@@ -324,7 +314,13 @@ contract Plonky2Verifier {
 
         uint64 fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
         console.log(fri_pow_response);
-        // uint32[] fri_query_indices
+        uint32[] memory fri_query_indices = new uint32[](NUM_FRI_QUERY_ROUND);
+        uint32 lde_size = uint32(1 << (DEGREE_BITS + FRI_RATE_BITS));
+        for (uint32 i = 0; i < NUM_FRI_QUERY_ROUND; i++) {
+            uint32 ele = uint32(challenger_get_challenge(challenger));
+            fri_query_indices[i] = ele % lde_size;
+            console.log(fri_query_indices[i]);
+        }
 
         bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         require(proof_with_public_inputs.wires_cap.length == NUM_WIRES_CAP);
