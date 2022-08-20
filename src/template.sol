@@ -243,6 +243,20 @@ contract Plonky2Verifier {
     }
 
     function get_fri_pow_response(Challenger memory challenger, bytes8 pow_witness) internal pure returns (uint64 res) {
+        uint64 u1 = challenger_get_challenge(challenger);
+        uint64 u2 = challenger_get_challenge(challenger);
+        uint64 u3 = challenger_get_challenge(challenger);
+        uint64 u4 = challenger_get_challenge(challenger);
+        uint64 u5 = uint64(pow_witness);
+
+        Challenger memory new_challenger;
+        challenger_observe_element(new_challenger, bytes8(reverse(u1)));
+        challenger_observe_element(new_challenger, bytes8(reverse(u2)));
+        challenger_observe_element(new_challenger, bytes8(reverse(u3)));
+        challenger_observe_element(new_challenger, bytes8(reverse(u4)));
+        challenger_observe_element(new_challenger, bytes8(u5));
+
+        res = challenger_get_challenge(new_challenger);
     }
 
     function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
@@ -304,7 +318,12 @@ contract Plonky2Verifier {
             console.log(fri_betas[i][0], fri_betas[i][1]);
         }
 
-        // uint64 fri_pow_response
+        for (uint32 i = 0; i < NUM_FRI_FINAL_POLY_EXT_V; i++) {
+            challenger_observe_extension(challenger, proof_with_public_inputs.fri_final_poly_ext_v[i]);
+        }
+
+        uint64 fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
+        console.log(fri_pow_response);
         // uint32[] fri_query_indices
 
         bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
