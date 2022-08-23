@@ -523,9 +523,13 @@ mod tests {
     use std::path::Path;
 
     use anyhow::Result;
-    use log::{info, Level};
+    use plonky2::field::extension::Extendable;
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
     use plonky2::fri::FriConfig;
+    use plonky2::hash::hash_types::RichField;
+    use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
+    use plonky2::plonk::config::Hasher;
+    use plonky2::plonk::proof::ProofWithPublicInputs;
     use plonky2::{
         gates::noop::NoopGate,
         iop::witness::PartialWitness,
@@ -533,9 +537,7 @@ mod tests {
             circuit_builder::CircuitBuilder,
             circuit_data::CircuitConfig,
             config::{GenericConfig, PoseidonGoldilocksConfig},
-            prover::prove,
         },
-        util::timing::TimingTree,
     };
 
     use crate::config::KeccakGoldilocksConfig2;
@@ -544,6 +546,31 @@ mod tests {
         recursive_proof,
     };
 
+    /// Creates a dummy proof which should have roughly `num_dummy_gates` gates.
+    fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
+        config: &CircuitConfig,
+        num_dummy_gates: u64,
+    ) -> Result<(
+        ProofWithPublicInputs<F, C, D>,
+        VerifierOnlyCircuitData<C, D>,
+        CommonCircuitData<F, C, D>,
+    )>
+    where
+        [(); C::Hasher::HASH_SIZE]:,
+    {
+        let mut builder = CircuitBuilder::<F, D>::new(config.clone());
+        for _ in 0..num_dummy_gates {
+            builder.add_gate(NoopGate, vec![]);
+        }
+
+        let data = builder.build::<C>();
+        let inputs = PartialWitness::new();
+        let proof = data.prove(inputs)?;
+        data.verify(proof.clone())?;
+
+        Ok((proof, data.verifier_only, data.common))
+    }
+
     #[test]
     fn test_verifier_without_public_inputs() -> Result<()> {
         const D: usize = 2;
@@ -551,24 +578,62 @@ mod tests {
         type F = <C as GenericConfig<D>>::F;
         type KC2 = KeccakGoldilocksConfig2;
         let standard_config = CircuitConfig::standard_recursion_config();
+        // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
+        let high_rate_config = CircuitConfig {
+            fri_config: FriConfig {
+                rate_bits: 7,
+                proof_of_work_bits: 16,
+                num_query_rounds: 12,
+                ..standard_config.fri_config.clone()
+            },
+            ..standard_config
+        };
+        // A final proof, optimized for size.
+        let final_config = CircuitConfig {
+            num_routed_wires: 37,
+            fri_config: FriConfig {
+                rate_bits: 8,
+                cap_height: 0,
+                proof_of_work_bits: 20,
+                reduction_strategy: FriReductionStrategy::MinSize(None),
+                num_query_rounds: 10,
+            },
+            ..high_rate_config
+        };
 
-        const NUM_DUMMY_GATES: usize = 4000;
-        info!("Constructing proof with {} gates", NUM_DUMMY_GATES);
-        let mut builder = CircuitBuilder::<F, D>::new(standard_config.clone());
-        for _ in 0..NUM_DUMMY_GATES {
-            builder.add_gate(NoopGate, vec![]);
+        let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000)?;
+
+        let conf = generate_verifier_config(&proof)?;
+        let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
+
+        let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
+        sol_file.write_all(contract.as_bytes())?;
+
+        let proof_base64 = generate_proof_base64(&proof, &conf)?;
+        let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
+
+        if !Path::new("./contract/test/data").is_dir() {
+            std::fs::create_dir("./contract/test/data")?;
         }
-        builder.print_gate_counts(0);
 
-        let data = builder.build::<C>();
-        let inputs = PartialWitness::new();
+        let mut proof_file = File::create("./contract/test/data/proof.json")?;
+        proof_file.write_all(proof_json.as_bytes())?;
 
-        let mut timing = TimingTree::new("prove", Level::Debug);
-        let proof = prove(&data.prover_only, &data.common, inputs, &mut timing)?;
-        timing.print();
-        data.verify(proof.clone())?;
-        let vd = data.verifier_only;
-        let cd = data.common;
+        let mut conf_file = File::create("./contract/test/data/conf.json")?;
+        conf_file.write_all(serde_json::to_string(&conf)?.as_ref())?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_recursive_verifier_without_public_inputs() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+        type KC2 = KeccakGoldilocksConfig2;
+        let standard_config = CircuitConfig::standard_recursion_config();
+
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
