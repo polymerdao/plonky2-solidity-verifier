@@ -3,8 +3,11 @@ pragma solidity ^0.8.9;
 
 // Import this file to use console.log
 import "hardhat/console.sol";
+import {ChallengerLib} from "./Challenger.sol";
 
 contract Plonky2Verifier {
+    using ChallengerLib for ChallengerLib.Challenger;
+
     uint32 constant SIGMAS_CAP_COUNT = $SIGMA_CAP_COUNT;
 
     uint32 constant NUM_WIRES_CAP = $NUM_WIRES_CAP;
@@ -87,109 +90,6 @@ contract Plonky2Verifier {
         $SET_SIGMA_CAP;
     }
 
-    uint32 constant SPONGE_RATE = 8;
-    uint32 constant SPONGE_CAPACITY = 4;
-    uint32 constant SPONGE_WIDTH = 12;
-
-    struct Challenger {
-        bytes8[] input_buf;
-        bytes8[] output_buf;
-        bytes8[SPONGE_WIDTH] sponge_state;
-    }
-
-    function elementToLeBytes(uint64 input) internal pure returns (bytes8 res) {
-        res = bytes8(input >> 56) & 0x00000000000000FF;
-        res = res | (bytes8(input >> 40) & 0x000000000000FF00);
-        res = res | (bytes8(input >> 24) & 0x0000000000FF0000);
-        res = res | (bytes8(input >> 8) & 0x00000000FF000000);
-        res = res | (bytes8(input << 8) & 0x000000FF00000000);
-        res = res | (bytes8(input << 24) & 0x0000FF0000000000);
-        res = res | (bytes8(input << 40) & 0x00FF000000000000);
-        res = res | (bytes8(input << 56) & 0xFF00000000000000);
-        return res;
-    }
-
-    function toBytes8(bytes memory _bytes, uint256 _start) internal pure returns (bytes8) {
-        require(_bytes.length >= _start + 8, "toBytes8_outOfBounds");
-        bytes8 tempBytes8;
-
-        assembly {
-            tempBytes8 := mload(add(add(_bytes, 0x20), _start))
-        }
-
-        return tempBytes8;
-    }
-
-    function keccak_permutation(bytes8[SPONGE_WIDTH] memory input) internal pure returns (bytes8[SPONGE_WIDTH] memory res) {
-        bytes32 h = keccak256(abi.encodePacked(input[0], input[1], input[2], input[3], input[4], input[5], input[6], input[7],
-            input[8], input[9], input[10], input[11]));
-        bytes32 hh = keccak256(abi.encodePacked(h));
-        bytes32 hhh = keccak256(abi.encodePacked(hh));
-        bytes memory tmp = abi.encodePacked(h, hh, hhh);
-        uint8 pos = 0;
-
-        for (uint i = 0; i < SPONGE_WIDTH * 8; i = i + 8) {
-            bytes8 b = toBytes8(tmp, i);
-            // check bytes in the field order
-            if ((b & 0x00000000FFFFFFFF) != 0x00000000FFFFFFFF) {
-                res[pos++] = b;
-            }
-        }
-
-        return res;
-    }
-
-    function challenger_duplexing(Challenger memory challenger) internal pure {
-        require(challenger.input_buf.length <= SPONGE_RATE);
-        for (uint i = 0; i < challenger.input_buf.length; i++) {
-            challenger.sponge_state[i] = challenger.input_buf[i];
-        }
-        delete challenger.input_buf;
-        challenger.sponge_state = keccak_permutation(challenger.sponge_state);
-        delete challenger.output_buf;
-        challenger.output_buf = new bytes8[](SPONGE_RATE);
-        for (uint i = 0; i < SPONGE_RATE; i++) {
-            challenger.output_buf[i] = challenger.sponge_state[i];
-        }
-    }
-
-    function challenger_observe_element(Challenger memory challenger, bytes8 element) internal pure {
-        delete challenger.output_buf;
-        bytes8[] memory input = new bytes8[](challenger.input_buf.length + 1);
-        for (uint32 i = 0; i < input.length - 1; i++) {
-            input[i] = challenger.input_buf[i];
-        }
-        input[input.length - 1] = element;
-        delete challenger.input_buf;
-        challenger.input_buf = input;
-        if (challenger.input_buf.length == SPONGE_RATE) {
-            challenger_duplexing(challenger);
-        }
-    }
-
-    function challenger_observe_extension(Challenger memory challenger, bytes16 ext) internal pure {
-        bytes8 element = bytes8(ext);
-        challenger_observe_element(challenger, element);
-        element = bytes8(ext << 64);
-        challenger_observe_element(challenger, element);
-    }
-
-    function challenger_observe_hash(Challenger memory challenger, bytes25 hash) internal pure {
-        bytes8 b0 = bytes8(hash);
-        bytes8 b1 = bytes8(hash << 56);
-        bytes8 b2 = bytes8(hash << 112);
-        bytes8 b3 = bytes8(hash << 168);
-        b0 = b0 & 0xFFFFFFFFFFFFFF00;
-        b1 = b1 & 0xFFFFFFFFFFFFFF00;
-        b2 = b2 & 0xFFFFFFFFFFFFFF00;
-        b3 = b3 & 0xFFFFFFFF00000000;
-
-        challenger_observe_element(challenger, b0);
-        challenger_observe_element(challenger, b1);
-        challenger_observe_element(challenger, b2);
-        challenger_observe_element(challenger, b3);
-    }
-
     function reverse(uint64 input) internal pure returns (uint64 v) {
         v = input;
 
@@ -205,124 +105,24 @@ contract Plonky2Verifier {
         v = (v >> 32) | (v << 32);
     }
 
-    function challenger_get_challenge(Challenger memory challenger) internal pure returns (uint64 res) {
-        if (challenger.input_buf.length > 0 || challenger.output_buf.length == 0) {
-            challenger_duplexing(challenger);
-        }
-        res = reverse(uint64(challenger.output_buf[challenger.output_buf.length - 1]));
-        bytes8[] memory output = new bytes8[](challenger.output_buf.length - 1);
-        for (uint32 i = 0; i < output.length; i++) {
-            output[i] = challenger.output_buf[i];
-        }
-        delete challenger.output_buf;
-        challenger.output_buf = output;
-        return res;
-    }
-
-    function challenger_get_challenges(Challenger memory challenger, uint32 num) internal pure returns (uint64[] memory) {
-        uint64[] memory res = new uint64[](num);
-        for (uint i = 0; i < num; i++) {
-            res[i] = challenger_get_challenge(challenger);
-        }
-        return res;
-    }
-
-    function get_extension_challenge(Challenger memory challenger) internal pure returns (uint64[2] memory res) {
-        res[0] = challenger_get_challenge(challenger);
-        res[1] = challenger_get_challenge(challenger);
-    }
-
-    function get_fri_pow_response(Challenger memory challenger, bytes8 pow_witness) internal pure returns (uint64 res) {
-        uint64 u1 = challenger_get_challenge(challenger);
-        uint64 u2 = challenger_get_challenge(challenger);
-        uint64 u3 = challenger_get_challenge(challenger);
-        uint64 u4 = challenger_get_challenge(challenger);
+    function get_fri_pow_response(ChallengerLib.Challenger memory challenger, bytes8 pow_witness) internal pure returns (uint64 res) {
+        uint64 u1 = challenger.get_challenge();
+        uint64 u2 = challenger.get_challenge();
+        uint64 u3 = challenger.get_challenge();
+        uint64 u4 = challenger.get_challenge();
         uint64 u5 = uint64(pow_witness);
 
-        Challenger memory new_challenger;
-        challenger_observe_element(new_challenger, bytes8(reverse(u1)));
-        challenger_observe_element(new_challenger, bytes8(reverse(u2)));
-        challenger_observe_element(new_challenger, bytes8(reverse(u3)));
-        challenger_observe_element(new_challenger, bytes8(reverse(u4)));
-        challenger_observe_element(new_challenger, bytes8(u5));
+        ChallengerLib.Challenger memory new_challenger;
+        new_challenger.observe_element(bytes8(reverse(u1)));
+        new_challenger.observe_element(bytes8(reverse(u2)));
+        new_challenger.observe_element(bytes8(reverse(u3)));
+        new_challenger.observe_element(bytes8(reverse(u4)));
+        new_challenger.observe_element(bytes8(u5));
 
-        res = challenger_get_challenge(new_challenger);
+        res = new_challenger.get_challenge();
     }
 
     function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
-        Challenger memory challenger;
-        bytes25 input_hash = 0;
-        challenger_observe_hash(challenger, CIRCUIT_DIGEST);
-        challenger_observe_hash(challenger, input_hash);
-        for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
-            challenger_observe_hash(challenger, proof_with_public_inputs.wires_cap[i]);
-        }
-        uint64[] memory plonk_betas = challenger_get_challenges(challenger, NUM_CHALLENGES);
-        uint64[] memory plonk_gammas = challenger_get_challenges(challenger, NUM_CHALLENGES);
-
-        for (uint32 i = 0; i < NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP; i++) {
-            challenger_observe_hash(challenger, proof_with_public_inputs.plonk_zs_partial_products_cap[i]);
-        }
-        uint64[] memory plonk_alphas = challenger_get_challenges(challenger, NUM_CHALLENGES);
-        console.log(plonk_betas[0]);
-        console.log(plonk_gammas[0]);
-        console.log(plonk_alphas[0]);
-
-        for (uint32 i = 0; i < NUM_QUOTIENT_POLYS_CAP; i++) {
-            challenger_observe_hash(challenger, proof_with_public_inputs.quotient_polys_cap[i]);
-        }
-        uint64[2] memory plonk_zeta = get_extension_challenge(challenger);
-        console.log(plonk_zeta[0], plonk_zeta[1]);
-
-        for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.openings_constants[i]);
-        }
-        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_SIGMAS; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.openings_plonk_sigmas[i]);
-        }
-        for (uint32 i = 0; i < NUM_OPENINGS_WIRES; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.openings_wires[i]);
-        }
-        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.openings_plonk_zs[i]);
-        }
-        for (uint32 i = 0; i < NUM_OPENINGS_PARTIAL_PRODUCTS; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.openings_partial_products[i]);
-        }
-        for (uint32 i = 0; i < NUM_OPENINGS_QUOTIENT_POLYS; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.openings_quotient_polys[i]);
-        }
-        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS_NEXT; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.openings_plonk_zs_next[i]);
-        }
-
-        // Fri Challenges
-        uint64[2] memory fri_alpha = get_extension_challenge(challenger);
-        console.log(fri_alpha[0], fri_alpha[1]);
-        uint64[NUM_FRI_COMMIT_ROUND][2] memory fri_betas;
-        for (uint32 i = 0; i < NUM_FRI_COMMIT_ROUND; i++) {
-            for (uint32 j = 0; j < FRI_COMMIT_MERKLE_CAP_HEIGHT; j++) {
-                challenger_observe_hash(challenger, proof_with_public_inputs.fri_commit_phase_merkle_caps[i][j]);
-            }
-            fri_betas[i] = get_extension_challenge(challenger);
-            console.log(fri_betas[i][0], fri_betas[i][1]);
-        }
-
-        for (uint32 i = 0; i < NUM_FRI_FINAL_POLY_EXT_V; i++) {
-            challenger_observe_extension(challenger, proof_with_public_inputs.fri_final_poly_ext_v[i]);
-        }
-
-        uint64 fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
-        console.log(fri_pow_response);
-        uint32[] memory fri_query_indices = new uint32[](NUM_FRI_QUERY_ROUND);
-        uint32 lde_size = uint32(1 << (DEGREE_BITS + FRI_RATE_BITS));
-        for (uint32 i = 0; i < NUM_FRI_QUERY_ROUND; i++) {
-            uint32 ele = uint32(challenger_get_challenge(challenger));
-            fri_query_indices[i] = ele % lde_size;
-            console.log(fri_query_indices[i]);
-        }
-
-        bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         require(proof_with_public_inputs.wires_cap.length == NUM_WIRES_CAP);
         require(proof_with_public_inputs.plonk_zs_partial_products_cap.length == NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP);
         require(proof_with_public_inputs.quotient_polys_cap.length == NUM_QUOTIENT_POLYS_CAP);
@@ -350,6 +150,79 @@ contract Plonky2Verifier {
 
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
+        ChallengerLib.Challenger memory challenger;
+        bytes25 input_hash = 0;
+        challenger.observe_hash(CIRCUIT_DIGEST);
+        challenger.observe_hash(input_hash);
+        for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
+            challenger.observe_hash(proof_with_public_inputs.wires_cap[i]);
+        }
+        uint64[] memory plonk_betas = challenger.get_challenges(NUM_CHALLENGES);
+        uint64[] memory plonk_gammas = challenger.get_challenges(NUM_CHALLENGES);
+
+        for (uint32 i = 0; i < NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP; i++) {
+            challenger.observe_hash(proof_with_public_inputs.plonk_zs_partial_products_cap[i]);
+        }
+        uint64[] memory plonk_alphas = challenger.get_challenges(NUM_CHALLENGES);
+        console.log(plonk_betas[0]);
+        console.log(plonk_gammas[0]);
+        console.log(plonk_alphas[0]);
+
+        for (uint32 i = 0; i < NUM_QUOTIENT_POLYS_CAP; i++) {
+            challenger.observe_hash(proof_with_public_inputs.quotient_polys_cap[i]);
+        }
+        uint64[2] memory plonk_zeta = challenger.get_extension_challenge();
+        console.log(plonk_zeta[0], plonk_zeta[1]);
+
+        for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
+            challenger.observe_extension(proof_with_public_inputs.openings_constants[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_SIGMAS; i++) {
+            challenger.observe_extension(proof_with_public_inputs.openings_plonk_sigmas[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_WIRES; i++) {
+            challenger.observe_extension(proof_with_public_inputs.openings_wires[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS; i++) {
+            challenger.observe_extension(proof_with_public_inputs.openings_plonk_zs[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PARTIAL_PRODUCTS; i++) {
+            challenger.observe_extension(proof_with_public_inputs.openings_partial_products[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_QUOTIENT_POLYS; i++) {
+            challenger.observe_extension(proof_with_public_inputs.openings_quotient_polys[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS_NEXT; i++) {
+            challenger.observe_extension(proof_with_public_inputs.openings_plonk_zs_next[i]);
+        }
+
+        // Fri Challenges
+        uint64[2] memory fri_alpha = challenger.get_extension_challenge();
+        console.log(fri_alpha[0], fri_alpha[1]);
+        uint64[NUM_FRI_COMMIT_ROUND][2] memory fri_betas;
+        for (uint32 i = 0; i < NUM_FRI_COMMIT_ROUND; i++) {
+            for (uint32 j = 0; j < FRI_COMMIT_MERKLE_CAP_HEIGHT; j++) {
+                challenger.observe_hash(proof_with_public_inputs.fri_commit_phase_merkle_caps[i][j]);
+            }
+            fri_betas[i] = challenger.get_extension_challenge();
+            console.log(fri_betas[i][0], fri_betas[i][1]);
+        }
+
+        for (uint32 i = 0; i < NUM_FRI_FINAL_POLY_EXT_V; i++) {
+            challenger.observe_extension(proof_with_public_inputs.fri_final_poly_ext_v[i]);
+        }
+
+        uint64 fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
+        console.log(fri_pow_response);
+        uint32[] memory fri_query_indices = new uint32[](NUM_FRI_QUERY_ROUND);
+        uint32 lde_size = uint32(1 << (DEGREE_BITS + FRI_RATE_BITS));
+        for (uint32 i = 0; i < NUM_FRI_QUERY_ROUND; i++) {
+            uint32 ele = uint32(challenger.get_challenge());
+            fri_query_indices[i] = ele % lde_size;
+            console.log(fri_query_indices[i]);
+        }
+
+        bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         console.logBytes25(sc[0]);
 
         console.logBytes25(proof_with_public_inputs.wires_cap[0]);
