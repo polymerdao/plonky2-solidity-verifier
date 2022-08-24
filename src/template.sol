@@ -43,6 +43,7 @@ contract Plonky2Verifier {
     uint32 constant NUM_CHALLENGES = $NUM_CHALLENGES;
     uint32 constant FRI_RATE_BITS = $FRI_RATE_BITS;
     uint32 constant DEGREE_BITS = $DEGREE_BITS;
+    uint32 constant NUM_GATE_CONSTRAINTS = 4; // TODO(): fix it
 
     struct Proof {
         bytes25[] wires_cap;
@@ -122,7 +123,7 @@ contract Plonky2Verifier {
         res = new_challenger.get_challenge();
     }
 
-    function verify(Proof memory proof_with_public_inputs) public view returns (bool) {
+    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
         require(proof_with_public_inputs.wires_cap.length == NUM_WIRES_CAP);
         require(proof_with_public_inputs.plonk_zs_partial_products_cap.length == NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP);
         require(proof_with_public_inputs.quotient_polys_cap.length == NUM_QUOTIENT_POLYS_CAP);
@@ -195,6 +196,12 @@ contract Plonky2Verifier {
         for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS_NEXT; i++) {
             challenger.observe_extension(proof_with_public_inputs.openings_plonk_zs_next[i]);
         }
+
+        // TODO: implement constraint_terms = evaluate_gate_constraints()
+        uint64[2][NUM_GATE_CONSTRAINTS] memory constraint_terms;
+        // vanishing_z_1_terms;
+        // vanishing_partial_products_terms;
+        // l1_x;
 
         // Fri Challenges
         uint64[2] memory fri_alpha = challenger.get_extension_challenge();

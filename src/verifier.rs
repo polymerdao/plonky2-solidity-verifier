@@ -625,6 +625,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_recursive_verifier_without_public_inputs() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
