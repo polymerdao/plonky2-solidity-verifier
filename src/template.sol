@@ -3,7 +3,8 @@ pragma solidity ^0.8.9;
 
 // Import this file to use console.log
 import "hardhat/console.sol";
-import {ChallengerLib} from "./Challenger.sol";
+import "./Challenger.sol";
+import "./Plonk.sol";
 
 contract Plonky2Verifier {
     using ChallengerLib for ChallengerLib.Challenger;
@@ -43,7 +44,7 @@ contract Plonky2Verifier {
     uint32 constant NUM_CHALLENGES = $NUM_CHALLENGES;
     uint32 constant FRI_RATE_BITS = $FRI_RATE_BITS;
     uint32 constant DEGREE_BITS = $DEGREE_BITS;
-    uint32 constant NUM_GATE_CONSTRAINTS = 4; // TODO(): fix it
+    uint32 constant NUM_GATE_CONSTRAINTS = 4; // TODO: fix it
 
     struct Proof {
         bytes25[] wires_cap;
@@ -77,14 +78,14 @@ contract Plonky2Verifier {
     }
 
     struct ProofChallenges {
-        bytes8[] plonk_betas;
-        bytes8[] plonk_gammas;
-        bytes8[] plonk_alphas;
-        bytes16[] plonk_zeta;
-        bytes16 fri_alpha;
-        bytes16[] fri_betas;
-        bytes8 fri_pow_response;
-        bytes8[] fri_query_indices;
+        uint64[] plonk_betas;
+        uint64[] plonk_gammas;
+        uint64[] plonk_alphas;
+        uint64[2] plonk_zeta;
+        uint64[2] fri_alpha;
+        uint64[NUM_FRI_COMMIT_ROUND][2] fri_betas;
+        uint64 fri_pow_response;
+        uint32[NUM_FRI_QUERY_ROUND] fri_query_indices;
     }
 
     function get_sigma_cap() internal pure returns (bytes25[SIGMAS_CAP_COUNT] memory sc) {
@@ -152,28 +153,29 @@ contract Plonky2Verifier {
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
         ChallengerLib.Challenger memory challenger;
+        ProofChallenges memory challenges;
         bytes25 input_hash = 0;
         challenger.observe_hash(CIRCUIT_DIGEST);
         challenger.observe_hash(input_hash);
         for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
             challenger.observe_hash(proof_with_public_inputs.wires_cap[i]);
         }
-        uint64[] memory plonk_betas = challenger.get_challenges(NUM_CHALLENGES);
-        uint64[] memory plonk_gammas = challenger.get_challenges(NUM_CHALLENGES);
+        challenges.plonk_betas = challenger.get_challenges(NUM_CHALLENGES);
+        challenges.plonk_gammas = challenger.get_challenges(NUM_CHALLENGES);
 
         for (uint32 i = 0; i < NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP; i++) {
             challenger.observe_hash(proof_with_public_inputs.plonk_zs_partial_products_cap[i]);
         }
-        uint64[] memory plonk_alphas = challenger.get_challenges(NUM_CHALLENGES);
-        console.log(plonk_betas[0]);
-        console.log(plonk_gammas[0]);
-        console.log(plonk_alphas[0]);
+        challenges.plonk_alphas = challenger.get_challenges(NUM_CHALLENGES);
+        console.log(challenges.plonk_betas[0]);
+        console.log(challenges.plonk_gammas[0]);
+        console.log(challenges.plonk_alphas[0]);
 
         for (uint32 i = 0; i < NUM_QUOTIENT_POLYS_CAP; i++) {
             challenger.observe_hash(proof_with_public_inputs.quotient_polys_cap[i]);
         }
-        uint64[2] memory plonk_zeta = challenger.get_extension_challenge();
-        console.log(plonk_zeta[0], plonk_zeta[1]);
+        challenges.plonk_zeta = challenger.get_extension_challenge();
+        console.log(challenges.plonk_zeta[0], challenges.plonk_zeta[1]);
 
         for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
             challenger.observe_extension(proof_with_public_inputs.openings_constants[i]);
@@ -197,37 +199,36 @@ contract Plonky2Verifier {
             challenger.observe_extension(proof_with_public_inputs.openings_plonk_zs_next[i]);
         }
 
-        // TODO: implement constraint_terms = evaluate_gate_constraints()
-        uint64[2][NUM_GATE_CONSTRAINTS] memory constraint_terms;
-        // vanishing_z_1_terms;
-        // vanishing_partial_products_terms;
-        // l1_x;
-
         // Fri Challenges
-        uint64[2] memory fri_alpha = challenger.get_extension_challenge();
-        console.log(fri_alpha[0], fri_alpha[1]);
-        uint64[NUM_FRI_COMMIT_ROUND][2] memory fri_betas;
+        challenges.fri_alpha = challenger.get_extension_challenge();
+        console.log(challenges.fri_alpha[0], challenges.fri_alpha[1]);
         for (uint32 i = 0; i < NUM_FRI_COMMIT_ROUND; i++) {
             for (uint32 j = 0; j < FRI_COMMIT_MERKLE_CAP_HEIGHT; j++) {
                 challenger.observe_hash(proof_with_public_inputs.fri_commit_phase_merkle_caps[i][j]);
             }
-            fri_betas[i] = challenger.get_extension_challenge();
-            console.log(fri_betas[i][0], fri_betas[i][1]);
+            challenges.fri_betas[i] = challenger.get_extension_challenge();
+            console.log(challenges.fri_betas[i][0], challenges.fri_betas[i][1]);
         }
 
         for (uint32 i = 0; i < NUM_FRI_FINAL_POLY_EXT_V; i++) {
             challenger.observe_extension(proof_with_public_inputs.fri_final_poly_ext_v[i]);
         }
 
-        uint64 fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
-        console.log(fri_pow_response);
-        uint32[] memory fri_query_indices = new uint32[](NUM_FRI_QUERY_ROUND);
+        challenges.fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
+        console.log(challenges.fri_pow_response);
         uint32 lde_size = uint32(1 << (DEGREE_BITS + FRI_RATE_BITS));
         for (uint32 i = 0; i < NUM_FRI_QUERY_ROUND; i++) {
             uint32 ele = uint32(challenger.get_challenge());
-            fri_query_indices[i] = ele % lde_size;
-            console.log(fri_query_indices[i]);
+            challenges.fri_query_indices[i] = ele % lde_size;
+            console.log(challenges.fri_query_indices[i]);
         }
+
+        // TODO: implement constraint_terms = evaluate_gate_constraints()
+        // constraint_terms;
+        // vanishing_z_1_terms;
+        // vanishing_partial_products_terms;
+        uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
+        console.log(l1_x[0], l1_x[1]);
 
         bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         console.logBytes25(sc[0]);
