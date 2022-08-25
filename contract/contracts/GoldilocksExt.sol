@@ -7,15 +7,23 @@ library GoldilocksExtLib {
     using GoldilocksFieldLib for uint64;
 
     uint64 constant W = 7;
+    uint64 constant DTH_ROOT = 18446744069414584320;
 
     function one() internal pure returns (uint64[2] memory res) {
         res[0] = 1;
+        return res;
     }
 
     function add(uint64[2] memory a, uint64[2] memory b) internal pure returns (uint64[2] memory res) {
+        res[0] = a[0].add(b[0]);
+        res[1] = a[1].add(b[1]);
+        return res;
     }
 
     function sub(uint64[2] memory a, uint64[2] memory b) internal pure returns (uint64[2] memory res) {
+        res[0] = a[0].sub(b[0]);
+        res[1] = a[1].sub(b[1]);
+        return res;
     }
 
     function mul(uint64[2] memory a, uint64[2] memory b) internal pure returns (uint64[2] memory res) {
@@ -36,6 +44,30 @@ library GoldilocksExtLib {
     }
 
     function div(uint64[2] memory a, uint64[2] memory b) internal pure returns (uint64[2] memory res) {
+    }
+
+    function scalar_mul(uint64[2] memory a, uint64 scalar) internal pure returns (uint64[2] memory res) {
+        res[0] = a[0].mul(scalar);
+        res[1] = a[1].mul(scalar);
+        return res;
+    }
+
+    function inverse(uint64[2] memory a) internal pure returns (uint64[2] memory res) {
+        require(a[0] != 0 || a[1] != 0);
+        uint64[2] memory a_pow_r_minus_1 = repeated_frobenius(a, 1);
+        uint64[2] memory a_pow_r = mul(a_pow_r_minus_1, a);
+        return scalar_mul(a_pow_r_minus_1, a_pow_r[0].inverse());
+    }
+
+    function repeated_frobenius(uint64[2] memory a, uint32 count) internal pure returns (uint64[2] memory res) {
+        if (count == 0) {
+            return a;
+        } else if (count >= 2) {
+            return repeated_frobenius(a, count % 2);
+        }
+        res[0] = a[0].mul(1);
+        res[1] = a[1].mul(DTH_ROOT);
+        return res;
     }
 
     function square(uint64[2] memory a) internal pure returns (uint64[2] memory res) {

@@ -3,15 +3,19 @@ pragma solidity ^0.8.9;
 
 library GoldilocksFieldLib {
     uint64 constant EPSILON = 4294967295;  // (1 << 32) - 1
+    uint64 constant ORDER = 18446744069414584321;
+    uint32 constant CHARACTERISTIC_TWO_ADICITY = 32;
+    uint64 constant INVERSE_2_POW_ADICITY = 18446744065119617026;
 
     function mul(uint64 a, uint64 b) internal pure returns (uint64) {
         return reduce128(uint128(a) * uint128(b));
     }
 
-    function div(uint64 a, uint64 b) internal pure returns (uint64 res) {
+    function div(uint64 a, uint64 b) internal pure returns (uint64) {
+        return mul(a, inverse(b));
     }
 
-    function square(uint64 a) internal pure returns (uint64 res) {
+    function square(uint64 a) internal pure returns (uint64) {
         return mul(a, a);
     }
 
@@ -67,6 +71,116 @@ library GoldilocksFieldLib {
 
     function double(uint64 a) internal pure returns (uint64 res) {
         return add(a, a);
+    }
+
+    function trailing_zeros(uint64 a) internal pure returns (uint32 res) {
+        if (a == 0) return 0;
+        while (a & 1 == 0) {
+            a >> 1;
+            res++;
+        }
+        return res;
+    }
+
+    /// Compute the inverse of 2^exp in this field.
+    function inverse_2exp(uint32 exp) internal pure returns (uint64) {
+        if (exp > CHARACTERISTIC_TWO_ADICITY) {
+            uint64 res = INVERSE_2_POW_ADICITY;
+            uint32 e = exp - CHARACTERISTIC_TWO_ADICITY;
+            while (e > CHARACTERISTIC_TWO_ADICITY) {
+                res = mul(res, INVERSE_2_POW_ADICITY);
+                e -= CHARACTERISTIC_TWO_ADICITY;
+            }
+            return mul(res, ORDER - ((ORDER - 1) >> uint64(e)));
+        } else {
+            return ORDER - ((ORDER - 1) >> uint64(exp));
+        }
+    }
+
+    function safe_iteration(uint64 f, uint64 g, int128 c, int128 d, uint32 k) internal pure returns (uint64, uint64, int128, int128, uint32) {
+        if (f < g) {
+            (f, g) = (g, f);
+            (c, d) = (d, c);
+        }
+        if (f & 3 == g & 3) {
+            // f - g = 0 (mod 4)
+            f -= g;
+            c -= d;
+            // kk >= 2 because f is now 0 (mod 4).
+            uint32 kk = trailing_zeros(f);
+            f = f >> kk;
+            d = d << kk;
+            k += kk;
+        } else {
+            // f + g = 0 (mod 4)
+            f = (f >> 2) + (g >> 2) + 1;
+            c += d;
+            uint32 kk = trailing_zeros(f);
+            f = f >> kk;
+            d = d << (kk + 2);
+            k += kk + 2;
+        }
+        return (f, g, c, d, k);
+    }
+
+    function unsafe_iteration(uint64 f, uint64 g, int128 c, int128 d, uint32 k) internal pure returns (uint64, uint64, int128, int128, uint32) {
+        if (f < g) {
+            (f, g) = (g, f);
+            (c, d) = (d, c);
+        }
+        if (f & 3 == g & 3) {
+            // f - g = 0 (mod 4)
+            f -= g;
+            c -= d;
+        } else {
+            // f + g = 0 (mod 4)
+            f += g;
+            c += d;
+        }
+        // kk >= 2 because f is now 0 (mod 4).
+        uint32 kk = trailing_zeros(f);
+        f = f >> kk;
+        d = d << kk;
+        k += kk;
+        return (f, g, c, d, k);
+    }
+
+    function inverse(uint64 f) internal pure returns (uint64) {
+        require(f != 0);
+        uint64 g = ORDER;
+        int128 c = 1;
+        int128 d = 0;
+
+        uint32 k = trailing_zeros(f);
+        f = f >> k;
+        if (f == 1) {
+            return inverse_2exp(k);
+        }
+
+        (f, g, c, d, k) = safe_iteration(f, g, c, d, k);
+
+        if (f == 1) {
+            // c must be -1 or 1 here.
+            if (c == - 1) {
+                return sub(0, inverse_2exp(k));
+            }
+            return inverse_2exp(k);
+        }
+
+        (f, g, c, d, k) = safe_iteration(f, g, c, d, k);
+        while (f != 1) {
+            (f, g, c, d, k) = unsafe_iteration(f, g, c, d, k);
+        }
+
+        while (c < 0) {
+            c += int128(uint128(ORDER));
+        }
+
+        while (c >= int128(uint128(ORDER))) {
+            c -= int128(uint128(ORDER));
+        }
+
+        return mul(uint64(uint128(c)), inverse_2exp(k));
     }
 
     // Reduces to a 64-bit value. The result might not be in canonical form;
