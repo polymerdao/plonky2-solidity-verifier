@@ -44,6 +44,7 @@ library GoldilocksExtLib {
     }
 
     function div(uint64[2] memory a, uint64[2] memory b) internal pure returns (uint64[2] memory res) {
+        return mul(a, inverse(b));
     }
 
     function scalar_mul(uint64[2] memory a, uint64 scalar) internal pure returns (uint64[2] memory res) {
@@ -53,10 +54,11 @@ library GoldilocksExtLib {
     }
 
     function inverse(uint64[2] memory a) internal pure returns (uint64[2] memory res) {
-        require(a[0] != 0 || a[1] != 0);
+        require(a[0] != 0 && a[1] != 0);
         uint64[2] memory a_pow_r_minus_1 = repeated_frobenius(a, 1);
         uint64[2] memory a_pow_r = mul(a_pow_r_minus_1, a);
-        return scalar_mul(a_pow_r_minus_1, a_pow_r[0].inverse());
+        res = scalar_mul(a_pow_r_minus_1, a_pow_r[0].inverse());
+        return res;
     }
 
     function repeated_frobenius(uint64[2] memory a, uint32 count) internal pure returns (uint64[2] memory res) {
@@ -77,9 +79,10 @@ library GoldilocksExtLib {
     }
 
     function exp(uint64[2] memory x, uint64 n) internal pure returns (uint64[2] memory) {
+        if (x[0] == 0 && x[1] == 0) return x;
         uint64[2] memory product = one();
         uint32 shift = 0;
-        while ((n << shift) <= n) {
+        while ((1 << shift) <= n) {
             if ((n >> shift) & 1 > 0) {
                 product = mul(product, x);
             }

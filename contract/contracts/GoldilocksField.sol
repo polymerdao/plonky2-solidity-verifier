@@ -76,7 +76,7 @@ library GoldilocksFieldLib {
     function trailing_zeros(uint64 a) internal pure returns (uint32 res) {
         if (a == 0) return 0;
         while (a & 1 == 0) {
-            a >> 1;
+            a = a >> 1;
             res++;
         }
         return res;
@@ -208,7 +208,7 @@ library GoldilocksFieldLib {
     // Reduces to a 64-bit value. The correctness relies on the
     // unchecked assumption that x < 2^160 - 2^128 + 2^96
     function reduce160(uint128 _x_lo, uint32 _x_hi) internal pure returns (uint64) {
-        uint64 x_hi = uint64(_x_lo >> 96) + uint64(_x_hi) << 32;
+        uint64 x_hi = uint64(_x_lo >> 96) + (uint64(_x_hi) << 32);
         uint32 x_mid = uint32(_x_lo >> 64);
         uint64 x_lo = uint64(_x_lo);
 
