@@ -197,4 +197,26 @@ describe("Verifier", function () {
             expect(await verifier.verify(input)).to.equal(true);
         });
     });
+
+    describe("TestGoldilocks", function () {
+        it("test_mul", async function () {
+            const Contract = await ethers.getContractFactory("TestGoldilocks");
+            const tests = await Contract.deploy();
+
+            expect(await tests.test_mul()).to.equal(5496890231018735829n);
+        });
+
+        it("test_inverse_2exp_12", async function () {
+            const Contract = await ethers.getContractFactory("TestGoldilocks");
+            const tests = await Contract.deploy();
+
+            expect(await tests.test_inverse_2exp_12()).to.equal(18442240469788262401n);
+        });
+        it("test_inverse_2exp_109", async function () {
+            const Contract = await ethers.getContractFactory("TestGoldilocks");
+            const tests = await Contract.deploy();
+
+            expect(await tests.test_inverse_2exp_109()).to.equal(2251799813160960n);
+        });
+    });
 });
