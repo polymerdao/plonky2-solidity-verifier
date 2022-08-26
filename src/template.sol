@@ -87,7 +87,7 @@ contract Plonky2Verifier {
         uint64[] plonk_alphas;
         uint64[2] plonk_zeta;
         uint64[2] fri_alpha;
-        uint64[NUM_FRI_COMMIT_ROUND][2] fri_betas;
+        uint64[2][NUM_FRI_COMMIT_ROUND] fri_betas;
         uint64 fri_pow_response;
         uint32[NUM_FRI_QUERY_ROUND] fri_query_indices;
     }
@@ -137,36 +137,8 @@ contract Plonky2Verifier {
         res = new_challenger.get_challenge();
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
-        require(proof_with_public_inputs.wires_cap.length == NUM_WIRES_CAP);
-        require(proof_with_public_inputs.plonk_zs_partial_products_cap.length == NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP);
-        require(proof_with_public_inputs.quotient_polys_cap.length == NUM_QUOTIENT_POLYS_CAP);
-        require(proof_with_public_inputs.openings_constants.length == NUM_OPENINGS_CONSTANTS);
-        require(proof_with_public_inputs.openings_plonk_sigmas.length == NUM_OPENINGS_PLONK_SIGMAS);
-        require(proof_with_public_inputs.openings_wires.length == NUM_OPENINGS_WIRES);
-        require(proof_with_public_inputs.openings_plonk_zs.length == NUM_OPENINGS_PLONK_ZS);
-        require(proof_with_public_inputs.openings_plonk_zs_next.length == NUM_OPENINGS_PLONK_ZS_NEXT);
-        require(proof_with_public_inputs.openings_partial_products.length == NUM_OPENINGS_PARTIAL_PRODUCTS);
-        require(proof_with_public_inputs.openings_quotient_polys.length == NUM_OPENINGS_QUOTIENT_POLYS);
-
-        require(proof_with_public_inputs.fri_commit_phase_merkle_caps.length == NUM_FRI_COMMIT_ROUND);
-        require(proof_with_public_inputs.fri_query_init_constants_sigmas_v.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_init_constants_sigmas_p.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_init_wires_v.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_init_wires_p.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_init_zs_partial_v.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_init_zs_partial_p.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_init_quotient_v.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_init_quotient_p.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_step0_v.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_step0_p.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_step1_v.length == NUM_FRI_QUERY_ROUND);
-        require(proof_with_public_inputs.fri_query_step1_p.length == NUM_FRI_QUERY_ROUND);
-
-        require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
-
+    function get_challenges(Proof calldata proof_with_public_inputs, ProofChallenges memory challenges) public pure {
         ChallengerLib.Challenger memory challenger;
-        ProofChallenges memory challenges;
         bytes25 input_hash = 0;
         challenger.observe_hash(CIRCUIT_DIGEST);
         challenger.observe_hash(input_hash);
@@ -180,15 +152,11 @@ contract Plonky2Verifier {
             challenger.observe_hash(proof_with_public_inputs.plonk_zs_partial_products_cap[i]);
         }
         challenges.plonk_alphas = challenger.get_challenges(NUM_CHALLENGES);
-        console.log(challenges.plonk_betas[0]);
-        console.log(challenges.plonk_gammas[0]);
-        console.log(challenges.plonk_alphas[0]);
 
         for (uint32 i = 0; i < NUM_QUOTIENT_POLYS_CAP; i++) {
             challenger.observe_hash(proof_with_public_inputs.quotient_polys_cap[i]);
         }
         challenges.plonk_zeta = challenger.get_extension_challenge();
-        console.log(challenges.plonk_zeta[0], challenges.plonk_zeta[1]);
 
         for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
             challenger.observe_extension(proof_with_public_inputs.openings_constants[i]);
@@ -214,13 +182,11 @@ contract Plonky2Verifier {
 
         // Fri Challenges
         challenges.fri_alpha = challenger.get_extension_challenge();
-        console.log(challenges.fri_alpha[0], challenges.fri_alpha[1]);
         for (uint32 i = 0; i < NUM_FRI_COMMIT_ROUND; i++) {
             for (uint32 j = 0; j < FRI_COMMIT_MERKLE_CAP_HEIGHT; j++) {
                 challenger.observe_hash(proof_with_public_inputs.fri_commit_phase_merkle_caps[i][j]);
             }
             challenges.fri_betas[i] = challenger.get_extension_challenge();
-            console.log(challenges.fri_betas[i][0], challenges.fri_betas[i][1]);
         }
 
         for (uint32 i = 0; i < NUM_FRI_FINAL_POLY_EXT_V; i++) {
@@ -228,47 +194,41 @@ contract Plonky2Verifier {
         }
 
         challenges.fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
-        console.log(challenges.fri_pow_response);
         uint32 lde_size = uint32(1 << (DEGREE_BITS + FRI_RATE_BITS));
         for (uint32 i = 0; i < NUM_FRI_QUERY_ROUND; i++) {
             uint32 ele = uint32(challenger.get_challenge());
             challenges.fri_query_indices[i] = ele % lde_size;
-            console.log(challenges.fri_query_indices[i]);
         }
+    }
 
+    function eval_vanishing_poly(Proof calldata proof_with_public_inputs, ProofChallenges memory challenges) public view {
         // TODO: implement constraint_terms = evaluate_gate_constraints()
         // constraint_terms;
-        uint64[NUM_CHALLENGES][2] memory vanishing_z_1_terms;
+        uint64[2][NUM_CHALLENGES] memory vanishing_z_1_terms;
         // vanishing_partial_products_terms;
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
-        console.log("NUM_CHALLENGES");
         for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
             uint64[2] memory z_x = le_bytes16_to_ext(proof_with_public_inputs.openings_plonk_zs[i]);
             uint64[2] memory z_gx = le_bytes16_to_ext(proof_with_public_inputs.openings_plonk_zs_next[i]);
 
             vanishing_z_1_terms[i] = l1_x.mul(z_x.sub(GoldilocksExtLib.one()));
-            uint64[NUM_OPENINGS_PLONK_SIGMAS][2] memory numerator_values;
-            uint64[NUM_OPENINGS_PLONK_SIGMAS][2] memory denominator_values;
-            for (uint32 j = 0; j<NUM_OPENINGS_PLONK_SIGMAS; j++) {
+            uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory numerator_values;
+            uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory denominator_values;
+            uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is = get_k_is();
+            for (uint32 j = 0; j < NUM_OPENINGS_PLONK_SIGMAS; j++) {
                 uint64[2] memory wire_value = le_bytes16_to_ext(proof_with_public_inputs.openings_wires[j]);
-
+                uint64[2] memory s_id = challenges.plonk_zeta.scalar_mul(k_is[j]);
+                numerator_values[j] = wire_value.add(s_id.scalar_mul(challenges.plonk_betas[i]));
+                numerator_values[j][0] = numerator_values[j][0].add(challenges.plonk_gammas[i]);
             }
         }
-        console.log("END NUM_CHALLENGES");
+    }
 
-        bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
-        console.logBytes25(sc[0]);
+    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
+        ProofChallenges memory challenges;
+        get_challenges(proof_with_public_inputs, challenges);
+        eval_vanishing_poly(proof_with_public_inputs, challenges);
 
-        console.logBytes25(proof_with_public_inputs.wires_cap[0]);
-
-        console.logBytes16(proof_with_public_inputs.openings_quotient_polys[0]);
-        console.logBytes8(proof_with_public_inputs.fri_query_init_constants_sigmas_v[0][0]);
-        console.logBytes25(proof_with_public_inputs.fri_query_init_constants_sigmas_p[0][0]);
-        console.logBytes8(proof_with_public_inputs.fri_query_init_quotient_v[0][0]);
-        console.logBytes25(proof_with_public_inputs.fri_query_init_quotient_p[0][0]);
-        console.logBytes16(proof_with_public_inputs.fri_query_step1_v[0][0]);
-        console.logBytes25(proof_with_public_inputs.fri_query_step1_p[0][0]);
-        console.logBytes8(proof_with_public_inputs.fri_pow_witness);
         return true;
     }
 }

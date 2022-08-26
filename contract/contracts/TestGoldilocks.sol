@@ -6,6 +6,10 @@ import "./GoldilocksExt.sol";
 
 // TODO: more unit tests needed for corner cases.
 contract TestGoldilocks {
+    function test_add() public pure returns (uint64) {
+        return GoldilocksFieldLib.add(14992246389055333107, 13533945482899040792);
+    }
+
     function test_mul() public pure returns (uint64) {
         return GoldilocksFieldLib.mul(16424245004931000714, 2251799813160960);
     }

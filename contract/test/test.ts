@@ -199,6 +199,12 @@ describe("Verifier", function () {
     });
 
     describe("TestGoldilocks", function () {
+        it("test_add", async function () {
+            const Contract = await ethers.getContractFactory("TestGoldilocks");
+            const tests = await Contract.deploy();
+
+            expect(await tests.test_add()).to.equal(10079447802539789578n);
+        });
         it("test_mul", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
