@@ -5,9 +5,13 @@ pragma solidity ^0.8.9;
 import "hardhat/console.sol";
 import "./Challenger.sol";
 import "./Plonk.sol";
+import "./GoldilocksField.sol";
+import "./GoldilocksExt.sol";
 
 contract Plonky2Verifier {
     using ChallengerLib for ChallengerLib.Challenger;
+    using GoldilocksFieldLib for uint64;
+    using GoldilocksExtLib for uint64[2];
 
     uint32 constant SIGMAS_CAP_COUNT = $SIGMA_CAP_COUNT;
 
@@ -105,6 +109,11 @@ contract Plonky2Verifier {
 
         // swap 4-byte long pairs
         v = (v >> 32) | (v << 32);
+    }
+
+    function le_bytes16_to_ext(bytes16 input) internal pure returns (uint64[2] memory res) {
+        res[1] = reverse(uint64(bytes8(input << 64)));
+        res[0] = reverse(uint64(bytes8(input)));
     }
 
     function get_fri_pow_response(ChallengerLib.Challenger memory challenger, bytes8 pow_witness) internal pure returns (uint64 res) {
@@ -225,10 +234,23 @@ contract Plonky2Verifier {
 
         // TODO: implement constraint_terms = evaluate_gate_constraints()
         // constraint_terms;
-        // vanishing_z_1_terms;
+        uint64[NUM_CHALLENGES][2] memory vanishing_z_1_terms;
         // vanishing_partial_products_terms;
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
-        console.log(l1_x[0], l1_x[1]);
+        console.log("NUM_CHALLENGES");
+        for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
+            uint64[2] memory z_x = le_bytes16_to_ext(proof_with_public_inputs.openings_plonk_zs[i]);
+            uint64[2] memory z_gx = le_bytes16_to_ext(proof_with_public_inputs.openings_plonk_zs_next[i]);
+
+            vanishing_z_1_terms[i] = l1_x.mul(z_x.sub(GoldilocksExtLib.one()));
+            uint64[NUM_OPENINGS_PLONK_SIGMAS][2] memory numerator_values;
+            uint64[NUM_OPENINGS_PLONK_SIGMAS][2] memory denominator_values;
+            for (uint32 j = 0; j<NUM_OPENINGS_PLONK_SIGMAS; j++) {
+                uint64[2] memory wire_value = le_bytes16_to_ext(proof_with_public_inputs.openings_wires[j]);
+
+            }
+        }
+        console.log("END NUM_CHALLENGES");
 
         bytes25[SIGMAS_CAP_COUNT] memory sc = get_sigma_cap();
         console.logBytes25(sc[0]);
