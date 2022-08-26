@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-plonky2 = { git = "https://github.com/mir-protocol/plonky2", rev = "b98dd478" }
+plonky2 = { git = "https://github.com/polymerdao/plonky2", rev = "f7872734" }
 anyhow = "1.0.40"
 log = "0.4.14"
 env_logger = "0.9.0"

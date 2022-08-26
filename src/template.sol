@@ -48,7 +48,7 @@ contract Plonky2Verifier {
     uint32 constant NUM_CHALLENGES = $NUM_CHALLENGES;
     uint32 constant FRI_RATE_BITS = $FRI_RATE_BITS;
     uint32 constant DEGREE_BITS = $DEGREE_BITS;
-    uint32 constant NUM_GATE_CONSTRAINTS = 4; // TODO: fix it
+    uint32 constant NUM_GATE_CONSTRAINTS = $NUM_GATE_CONSTRAINTS;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -94,6 +94,10 @@ contract Plonky2Verifier {
 
     function get_sigma_cap() internal pure returns (bytes25[SIGMAS_CAP_COUNT] memory sc) {
         $SET_SIGMA_CAP;
+    }
+
+    function get_k_is() internal pure returns (uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is) {
+        $SET_K_IS;
     }
 
     function reverse(uint64 input) internal pure returns (uint64 v) {

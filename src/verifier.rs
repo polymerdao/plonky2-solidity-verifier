@@ -387,6 +387,18 @@ pub fn generate_solidity_verifier<
         sigma_cap_str += &*("        sc[".to_owned() + &*i.to_string() + "] = 0x" + &*hash + ";\n");
     }
     contract = contract.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
+
+    let k_is = &common.k_is;
+    let mut k_is_str = "".to_owned();
+    for i in 0..k_is.len() {
+        k_is_str += &*("        k_is[".to_owned()
+            + &*i.to_string()
+            + "] = "
+            + &*k_is[i].to_canonical_u64().to_string()
+            + ";\n");
+    }
+    contract = contract.replace("        $SET_K_IS;\n", &*k_is_str);
+
     contract = contract.replace("$NUM_WIRES_CAP", &*conf.num_wires_cap.to_string());
     contract = contract.replace(
         "$NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP",
@@ -490,13 +502,7 @@ pub fn generate_solidity_verifier<
         &*common.config.num_challenges.to_string(),
     );
 
-    // TODO: This should also include an encoding of gate constraints.
-    let circuit_digest_parts = [
-        verifier_only.constants_sigmas_cap.flatten(),
-        vec![/* Add other circuit data here */],
-    ];
-    let circuit_digest = C::Hasher::hash_no_pad(&circuit_digest_parts.concat());
-
+    let circuit_digest = common.circuit_digest;
     contract = contract.replace(
         "$CIRCUIT_DIGEST",
         &*("0x".to_owned() + &encode_hex(&circuit_digest.to_bytes())),
@@ -507,6 +513,10 @@ pub fn generate_solidity_verifier<
         &*common.config.fri_config.rate_bits.to_string(),
     );
     contract = contract.replace("$DEGREE_BITS", &*common.degree_bits.to_string());
+    contract = contract.replace(
+        "$NUM_GATE_CONSTRAINTS",
+        &*common.num_gate_constraints.to_string(),
+    );
 
     println!(
         "{}",
