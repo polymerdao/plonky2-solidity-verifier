@@ -271,6 +271,16 @@ describe("Verifier", function () {
         });
     });
 
+    describe("TestChallenger", function () {
+        it("test_challenger", async function () {
+            const Contract = await ethers.getContractFactory("TestChallenger");
+            const tests = await Contract.deploy();
+
+            let res = await tests.test_challenger();
+            expect(res).to.equal(true);
+        });
+    });
+
     describe("TestPlonk", function () {
         it("test_eval_l_1", async function () {
             const Contract = await ethers.getContractFactory("TestPlonk");
