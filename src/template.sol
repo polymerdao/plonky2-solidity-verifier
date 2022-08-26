@@ -49,6 +49,7 @@ contract Plonky2Verifier {
     uint32 constant FRI_RATE_BITS = $FRI_RATE_BITS;
     uint32 constant DEGREE_BITS = $DEGREE_BITS;
     uint32 constant NUM_GATE_CONSTRAINTS = $NUM_GATE_CONSTRAINTS;
+    uint32 constant QUOTIENT_DEGREE_FACTOR = $QUOTIENT_DEGREE_FACTOR;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -137,63 +138,63 @@ contract Plonky2Verifier {
         res = new_challenger.get_challenge();
     }
 
-    function get_challenges(Proof calldata proof_with_public_inputs, ProofChallenges memory challenges) public pure {
+    function get_challenges(Proof calldata proof, ProofChallenges memory challenges) internal pure {
         ChallengerLib.Challenger memory challenger;
         bytes25 input_hash = 0;
         challenger.observe_hash(CIRCUIT_DIGEST);
         challenger.observe_hash(input_hash);
         for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
-            challenger.observe_hash(proof_with_public_inputs.wires_cap[i]);
+            challenger.observe_hash(proof.wires_cap[i]);
         }
         challenges.plonk_betas = challenger.get_challenges(NUM_CHALLENGES);
         challenges.plonk_gammas = challenger.get_challenges(NUM_CHALLENGES);
 
         for (uint32 i = 0; i < NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP; i++) {
-            challenger.observe_hash(proof_with_public_inputs.plonk_zs_partial_products_cap[i]);
+            challenger.observe_hash(proof.plonk_zs_partial_products_cap[i]);
         }
         challenges.plonk_alphas = challenger.get_challenges(NUM_CHALLENGES);
 
         for (uint32 i = 0; i < NUM_QUOTIENT_POLYS_CAP; i++) {
-            challenger.observe_hash(proof_with_public_inputs.quotient_polys_cap[i]);
+            challenger.observe_hash(proof.quotient_polys_cap[i]);
         }
         challenges.plonk_zeta = challenger.get_extension_challenge();
 
         for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
-            challenger.observe_extension(proof_with_public_inputs.openings_constants[i]);
+            challenger.observe_extension(proof.openings_constants[i]);
         }
         for (uint32 i = 0; i < NUM_OPENINGS_PLONK_SIGMAS; i++) {
-            challenger.observe_extension(proof_with_public_inputs.openings_plonk_sigmas[i]);
+            challenger.observe_extension(proof.openings_plonk_sigmas[i]);
         }
         for (uint32 i = 0; i < NUM_OPENINGS_WIRES; i++) {
-            challenger.observe_extension(proof_with_public_inputs.openings_wires[i]);
+            challenger.observe_extension(proof.openings_wires[i]);
         }
         for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS; i++) {
-            challenger.observe_extension(proof_with_public_inputs.openings_plonk_zs[i]);
+            challenger.observe_extension(proof.openings_plonk_zs[i]);
         }
         for (uint32 i = 0; i < NUM_OPENINGS_PARTIAL_PRODUCTS; i++) {
-            challenger.observe_extension(proof_with_public_inputs.openings_partial_products[i]);
+            challenger.observe_extension(proof.openings_partial_products[i]);
         }
         for (uint32 i = 0; i < NUM_OPENINGS_QUOTIENT_POLYS; i++) {
-            challenger.observe_extension(proof_with_public_inputs.openings_quotient_polys[i]);
+            challenger.observe_extension(proof.openings_quotient_polys[i]);
         }
         for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS_NEXT; i++) {
-            challenger.observe_extension(proof_with_public_inputs.openings_plonk_zs_next[i]);
+            challenger.observe_extension(proof.openings_plonk_zs_next[i]);
         }
 
         // Fri Challenges
         challenges.fri_alpha = challenger.get_extension_challenge();
         for (uint32 i = 0; i < NUM_FRI_COMMIT_ROUND; i++) {
             for (uint32 j = 0; j < FRI_COMMIT_MERKLE_CAP_HEIGHT; j++) {
-                challenger.observe_hash(proof_with_public_inputs.fri_commit_phase_merkle_caps[i][j]);
+                challenger.observe_hash(proof.fri_commit_phase_merkle_caps[i][j]);
             }
             challenges.fri_betas[i] = challenger.get_extension_challenge();
         }
 
         for (uint32 i = 0; i < NUM_FRI_FINAL_POLY_EXT_V; i++) {
-            challenger.observe_extension(proof_with_public_inputs.fri_final_poly_ext_v[i]);
+            challenger.observe_extension(proof.fri_final_poly_ext_v[i]);
         }
 
-        challenges.fri_pow_response = get_fri_pow_response(challenger, proof_with_public_inputs.fri_pow_witness);
+        challenges.fri_pow_response = get_fri_pow_response(challenger, proof.fri_pow_witness);
         uint32 lde_size = uint32(1 << (DEGREE_BITS + FRI_RATE_BITS));
         for (uint32 i = 0; i < NUM_FRI_QUERY_ROUND; i++) {
             uint32 ele = uint32(challenger.get_challenge());
@@ -201,27 +202,56 @@ contract Plonky2Verifier {
         }
     }
 
-    function eval_vanishing_poly(Proof calldata proof_with_public_inputs, ProofChallenges memory challenges) public view {
+    uint32 constant NUM_PARTIAL_PRODUCTS_TERMS = NUM_OPENINGS_PLONK_SIGMAS / QUOTIENT_DEGREE_FACTOR + 1;
+
+    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges) internal view {
+        uint64[2][NUM_GATE_CONSTRAINTS] memory constraint_terms;
         // TODO: implement constraint_terms = evaluate_gate_constraints()
-        // constraint_terms;
+
         uint64[2][NUM_CHALLENGES] memory vanishing_z_1_terms;
-        // vanishing_partial_products_terms;
+        uint64[2][NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES] memory vanishing_partial_products_terms;
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
         for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
-            uint64[2] memory z_x = le_bytes16_to_ext(proof_with_public_inputs.openings_plonk_zs[i]);
-            uint64[2] memory z_gx = le_bytes16_to_ext(proof_with_public_inputs.openings_plonk_zs_next[i]);
-
+            uint64[2] memory z_x = le_bytes16_to_ext(proof.openings_plonk_zs[i]);
             vanishing_z_1_terms[i] = l1_x.mul(z_x.sub(GoldilocksExtLib.one()));
+
             uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory numerator_values;
             uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory denominator_values;
+
             uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is = get_k_is();
             for (uint32 j = 0; j < NUM_OPENINGS_PLONK_SIGMAS; j++) {
-                uint64[2] memory wire_value = le_bytes16_to_ext(proof_with_public_inputs.openings_wires[j]);
+                uint64[2] memory wire_value = le_bytes16_to_ext(proof.openings_wires[j]);
                 uint64[2] memory s_id = challenges.plonk_zeta.scalar_mul(k_is[j]);
                 numerator_values[j] = wire_value.add(s_id.scalar_mul(challenges.plonk_betas[i]));
                 numerator_values[j][0] = numerator_values[j][0].add(challenges.plonk_gammas[i]);
+
+                uint64[2] memory s_sigma = le_bytes16_to_ext(proof.openings_plonk_sigmas[j]);
+                denominator_values[j] = wire_value.add(s_sigma.scalar_mul(challenges.plonk_betas[i]));
+                denominator_values[j][0] = denominator_values[j][0].add(challenges.plonk_gammas[i]);
+            }
+
+            uint64[2][NUM_PARTIAL_PRODUCTS_TERMS + 1] memory accs;
+            accs[0] = z_x;
+            accs[NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES + 1] = le_bytes16_to_ext(proof.openings_plonk_zs_next[i]);
+            for (uint32 j = 1; j < NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES + 1; j++) {
+                accs[j] = le_bytes16_to_ext(proof.openings_partial_products[i * (NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES) + j - 1]);
+            }
+
+            uint32 pos = 0;
+            // j: [0:5];  k: [0:8]
+            for (uint32 j = 0; j < NUM_PARTIAL_PRODUCTS_TERMS; j++) {
+                uint64[2] memory num_prod = numerator_values[pos];
+                uint64[2] memory den_prod = denominator_values[pos++];
+
+                for (uint32 k = 1; k < QUOTIENT_DEGREE_FACTOR && pos < NUM_OPENINGS_PLONK_SIGMAS; k++) {
+                    num_prod = num_prod.mul(numerator_values[pos]);
+                    den_prod = den_prod.mul(denominator_values[pos++]);
+                }
+                vanishing_partial_products_terms[NUM_PARTIAL_PRODUCTS_TERMS * i + j] = accs[j].mul(num_prod).sub(accs[j + 1].mul(den_prod));
             }
         }
+
+
     }
 
     function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {

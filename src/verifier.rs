@@ -517,6 +517,10 @@ pub fn generate_solidity_verifier<
         "$NUM_GATE_CONSTRAINTS",
         &*common.num_gate_constraints.to_string(),
     );
+    contract = contract.replace(
+        "$QUOTIENT_DEGREE_FACTOR",
+        &*common.quotient_degree_factor.to_string(),
+    );
 
     println!(
         "{}",
