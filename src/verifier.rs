@@ -253,105 +253,6 @@ pub fn generate_proof_base64<
     let proof_bytes = pwpi.to_bytes()?;
     assert_eq!(proof_bytes.len(), proof_size);
 
-    println!("{}", encode_hex(&pwpi.proof.wires_cap.0[0].to_bytes()));
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.openings.quotient_polys[0].to_basefield_array()[0]
-                .to_canonical_u64()
-                .to_le_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.openings.quotient_polys[0].to_basefield_array()[1]
-                .to_canonical_u64()
-                .to_le_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.opening_proof.query_round_proofs[0]
-                .initial_trees_proof
-                .evals_proofs[0]
-                .0[0]
-                .to_canonical_u64()
-                .to_le_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.opening_proof.query_round_proofs[0]
-                .initial_trees_proof
-                .evals_proofs[0]
-                .1
-                .siblings[0]
-                .to_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.opening_proof.query_round_proofs[0]
-                .initial_trees_proof
-                .evals_proofs[3]
-                .0[0]
-                .to_canonical_u64()
-                .to_le_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.opening_proof.query_round_proofs[0]
-                .initial_trees_proof
-                .evals_proofs[3]
-                .1
-                .siblings[0]
-                .to_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.opening_proof.query_round_proofs[0].steps[1].evals[0].to_basefield_array()
-                [0]
-            .to_canonical_u64()
-            .to_le_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.opening_proof.query_round_proofs[0].steps[1].evals[0].to_basefield_array()
-                [1]
-            .to_canonical_u64()
-            .to_le_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi.proof.opening_proof.query_round_proofs[0].steps[1]
-                .merkle_proof
-                .siblings[0]
-                .to_bytes()
-        )
-    );
-    println!(
-        "{}",
-        encode_hex(
-            &pwpi
-                .proof
-                .opening_proof
-                .pow_witness
-                .to_canonical_u64()
-                .to_le_bytes()
-        )
-    );
     Ok(base64::encode(proof_bytes))
 }
 
@@ -520,11 +421,6 @@ pub fn generate_solidity_verifier<
     contract = contract.replace(
         "$QUOTIENT_DEGREE_FACTOR",
         &*common.quotient_degree_factor.to_string(),
-    );
-
-    println!(
-        "{}",
-        encode_hex(&verifier_only.constants_sigmas_cap.0[0].to_bytes())
     );
 
     Ok(contract)

@@ -9,6 +9,11 @@ library GoldilocksExtLib {
     uint64 constant W = 7;
     uint64 constant DTH_ROOT = 18446744069414584320;
 
+    function equal(uint64[2] memory a, uint64[2] memory b) internal pure returns (bool res) {
+        res = a[0] == b[0];
+        res = res && a[1] == b[1];
+    }
+
     function one() internal pure returns (uint64[2] memory res) {
         res[0] = 1;
         return res;
@@ -75,6 +80,14 @@ library GoldilocksExtLib {
     function square(uint64[2] memory a) internal pure returns (uint64[2] memory res) {
         res[0] = a[0].square().add(W.mul(a[1].square()));
         res[1] = a[0].mul(a[1].double());
+        return res;
+    }
+
+    function exp_power_of_2(uint64[2] memory a, uint32 power_log) internal pure returns (uint64[2] memory res) {
+        res = a;
+        for (uint32 i = 0; i < power_log; i++) {
+            res = square(res);
+        }
         return res;
     }
 

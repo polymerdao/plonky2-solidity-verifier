@@ -204,16 +204,19 @@ contract Plonky2Verifier {
 
     uint32 constant NUM_PARTIAL_PRODUCTS_TERMS = NUM_OPENINGS_PLONK_SIGMAS / QUOTIENT_DEGREE_FACTOR + 1;
 
-    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges) internal view {
-        uint64[2][NUM_GATE_CONSTRAINTS] memory constraint_terms;
+    struct VanishingTerms {
+        uint64[2][NUM_GATE_CONSTRAINTS] constraint_terms;
+        uint64[2][NUM_CHALLENGES] vanishing_z_1_terms;
+        uint64[2][NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES] vanishing_partial_products_terms;
+    }
+
+    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (VanishingTerms memory vm) {
         // TODO: implement constraint_terms = evaluate_gate_constraints()
 
-        uint64[2][NUM_CHALLENGES] memory vanishing_z_1_terms;
-        uint64[2][NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES] memory vanishing_partial_products_terms;
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
         for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
             uint64[2] memory z_x = le_bytes16_to_ext(proof.openings_plonk_zs[i]);
-            vanishing_z_1_terms[i] = l1_x.mul(z_x.sub(GoldilocksExtLib.one()));
+            vm.vanishing_z_1_terms[i] = l1_x.mul(z_x.sub(GoldilocksExtLib.one()));
 
             uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory numerator_values;
             uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory denominator_values;
@@ -247,17 +250,49 @@ contract Plonky2Verifier {
                     num_prod = num_prod.mul(numerator_values[pos]);
                     den_prod = den_prod.mul(denominator_values[pos++]);
                 }
-                vanishing_partial_products_terms[NUM_PARTIAL_PRODUCTS_TERMS * i + j] = accs[j].mul(num_prod).sub(accs[j + 1].mul(den_prod));
+                vm.vanishing_partial_products_terms[NUM_PARTIAL_PRODUCTS_TERMS * i + j] = accs[j].mul(num_prod).sub(accs[j + 1].mul(den_prod));
             }
         }
 
-
+        return vm;
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
+    function reduce_with_powers(uint64[2][QUOTIENT_DEGREE_FACTOR] memory terms, uint64[2] memory alpha) internal pure returns (uint64[2] memory sum) {
+        for (uint32 i = QUOTIENT_DEGREE_FACTOR; i > 0; i--) {
+            sum = sum.mul(alpha).add(terms[i - 1]);
+        }
+        return sum;
+    }
+
+    function verify(Proof calldata proof_with_public_inputs) public pure returns (bool) {
         ProofChallenges memory challenges;
         get_challenges(proof_with_public_inputs, challenges);
-        eval_vanishing_poly(proof_with_public_inputs, challenges);
+        VanishingTerms memory vm = eval_vanishing_poly(proof_with_public_inputs, challenges);
+        uint64[2][NUM_CHALLENGES] memory zeta;
+        for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
+            uint64[2] memory alpha;
+            alpha[0] = challenges.plonk_alphas[i];
+            for (uint32 j = NUM_GATE_CONSTRAINTS; j > 0; j --) {
+                zeta[i] = vm.constraint_terms[j - 1].add(zeta[i].mul(alpha));
+            }
+            for (uint32 j = NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES; j > 0; j --) {
+                zeta[i] = vm.vanishing_partial_products_terms[j - 1].add(zeta[i].mul(alpha));
+            }
+            for (uint32 j = NUM_CHALLENGES; j > 0; j --) {
+                zeta[i] = vm.vanishing_z_1_terms[j - 1].add(zeta[i].mul(alpha));
+            }
+        }
+        uint64[2] memory zeta_pow_deg = challenges.plonk_zeta.exp_power_of_2(DEGREE_BITS);
+        uint64[2] memory z_h_zeta = zeta_pow_deg.sub(GoldilocksExtLib.one());
+        for (uint i = 0; i < NUM_CHALLENGES; i++) {
+            uint64[2][QUOTIENT_DEGREE_FACTOR] memory terms;
+            for (uint j = 0; j < QUOTIENT_DEGREE_FACTOR; j++) {
+                terms[j] = le_bytes16_to_ext(proof_with_public_inputs.openings_quotient_polys[i * QUOTIENT_DEGREE_FACTOR + j]);
+            }
+            require(zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg))));
+        }
+
+        //TODO: verify_fri_proof()
 
         return true;
     }
