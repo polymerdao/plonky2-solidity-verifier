@@ -289,7 +289,7 @@ contract Plonky2Verifier {
             for (uint j = 0; j < QUOTIENT_DEGREE_FACTOR; j++) {
                 terms[j] = le_bytes16_to_ext(proof_with_public_inputs.openings_quotient_polys[i * QUOTIENT_DEGREE_FACTOR + j]);
             }
-            require(zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg))));
+            if (!zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg)))) return false;
         }
 
         //TODO: verify_fri_proof()
