@@ -14,7 +14,7 @@ Things to do for this milestone:
 
 + [ ] implement evaluate_gate_constraints()
 
-Current Gas cost of verifying a 50kb proof is 2,492,500.
+Current Gas cost of verifying a 50kb proof is around 2.5m.
 
 Run tests with the following command lines.
 

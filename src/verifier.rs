@@ -422,6 +422,11 @@ pub fn generate_solidity_verifier<
         "$QUOTIENT_DEGREE_FACTOR",
         &*common.quotient_degree_factor.to_string(),
     );
+    contract = contract.replace(
+        "$MIN_FRI_POW_RESPONSE",
+        &*(common.config.fri_config.proof_of_work_bits + (64 - F::order().bits()) as u32)
+            .to_string(),
+    );
 
     Ok(contract)
 }

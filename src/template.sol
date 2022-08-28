@@ -241,7 +241,6 @@ contract Plonky2Verifier {
             }
 
             uint32 pos = 0;
-            // j: [0:5];  k: [0:8]
             for (uint32 j = 0; j < NUM_PARTIAL_PRODUCTS_TERMS; j++) {
                 uint64[2] memory num_prod = numerator_values[pos];
                 uint64[2] memory den_prod = denominator_values[pos++];
@@ -264,9 +263,31 @@ contract Plonky2Verifier {
         return sum;
     }
 
+    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
+        bool[4] memory oracles;
+        oracles[1] = true;
+        oracles[2] = true;
+        oracles[3] = true;
+
+        return true;
+    }
+
+    function leading_zeros(uint64 num) internal pure returns (uint32 res) {
+        while (0x8000000000000000 & num != 0x8000000000000000) {
+            res++;
+            num = num << 1;
+        }
+        return res;
+    }
+
     function verify(Proof calldata proof_with_public_inputs) public pure returns (bool) {
+        require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
+
         ProofChallenges memory challenges;
         get_challenges(proof_with_public_inputs, challenges);
+
+        require(leading_zeros(challenges.fri_pow_response) >= $MIN_FRI_POW_RESPONSE);
+
         VanishingTerms memory vm = eval_vanishing_poly(proof_with_public_inputs, challenges);
         uint64[2][NUM_CHALLENGES] memory zeta;
         for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
@@ -292,8 +313,6 @@ contract Plonky2Verifier {
             if (!zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg)))) return false;
         }
 
-        //TODO: verify_fri_proof()
-
-        return true;
+        return verify_fri_proof(proof_with_public_inputs, challenges);
     }
 }
