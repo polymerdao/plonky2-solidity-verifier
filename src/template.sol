@@ -263,12 +263,40 @@ contract Plonky2Verifier {
         return sum;
     }
 
-    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
+    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal view returns (bool) {
         bool[4] memory oracles;
         oracles[1] = true;
         oracles[2] = true;
         oracles[3] = true;
 
+        // Precomputed reduced openings
+        uint64[2][NUM_CHALLENGES] memory precomputed_reduced_evals;
+        for (uint32 i = NUM_OPENINGS_QUOTIENT_POLYS; i > 0; i --) {
+            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_quotient_polys[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+        }
+        for (uint32 i = NUM_OPENINGS_PARTIAL_PRODUCTS; i > 0; i --) {
+            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_partial_products[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+        }
+        for (uint32 i = NUM_OPENINGS_PLONK_ZS; i > 0; i --) {
+            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_plonk_zs[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+        }
+        for (uint32 i = NUM_OPENINGS_WIRES; i > 0; i --) {
+            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_wires[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+        }
+        for (uint32 i = NUM_OPENINGS_PLONK_SIGMAS; i > 0; i --) {
+            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_plonk_sigmas[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+        }
+        for (uint32 i = NUM_OPENINGS_CONSTANTS; i > 0; i --) {
+            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_constants[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+        }
+        for (uint32 i = NUM_OPENINGS_PLONK_ZS_NEXT; i > 0; i --) {
+            precomputed_reduced_evals[1] = le_bytes16_to_ext(proof.openings_plonk_zs_next[i - 1]).add(precomputed_reduced_evals[1].mul(challenges.fri_alpha));
+        }
+
+        console.log(precomputed_reduced_evals[0][0]);
+        console.log(precomputed_reduced_evals[0][1]);
+        console.log(precomputed_reduced_evals[1][0]);
+        console.log(precomputed_reduced_evals[1][1]);
         return true;
     }
 
@@ -280,7 +308,7 @@ contract Plonky2Verifier {
         return res;
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public pure returns (bool) {
+    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
         ProofChallenges memory challenges;
@@ -314,5 +342,6 @@ contract Plonky2Verifier {
         }
 
         return verify_fri_proof(proof_with_public_inputs, challenges);
+        // return true;
     }
 }
