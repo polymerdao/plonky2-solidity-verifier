@@ -294,11 +294,16 @@ contract Plonky2Verifier {
         oracles_blinding[2] = true;
         oracles_blinding[3] = true;
         // SIZE_OF_LDE_DOMAIN
+        uint64[2] memory g;
+        g[0] = $G_FROM_DEGREE_BITS0;
+        g[1] = $G_FROM_DEGREE_BITS1;
+        uint64[2] memory zeta_next;
+        zeta_next = g.mul(challenges.plonk_zeta);
         for (uint32 x_index = 0; x_index < NUM_FRI_QUERY_ROUND; x_index ++) {
             // round_proof
             // fri_verify_initial_proof
             // n = SIZE_OF_LDE_DOMAIN
-            // instance = ?
+
         }
 
         return true;

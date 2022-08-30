@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use anyhow::Result;
 use log::Level;
-use plonky2::field::extension::Extendable;
+use plonky2::field::extension::{Extendable, FieldExtension};
 use plonky2::field::types::Field;
 use plonky2::gates::noop::NoopGate;
 use plonky2::hash::hash_types::RichField;
@@ -426,6 +426,15 @@ pub fn generate_solidity_verifier<
         "$MIN_FRI_POW_RESPONSE",
         &*(common.config.fri_config.proof_of_work_bits + (64 - F::order().bits()) as u32)
             .to_string(),
+    );
+    let g = F::Extension::primitive_root_of_unity(common.degree_bits);
+    contract = contract.replace(
+        "$G_FROM_DEGREE_BITS0",
+        &g.to_basefield_array()[0].to_string(),
+    );
+    contract = contract.replace(
+        "$G_FROM_DEGREE_BITS1",
+        &g.to_basefield_array()[1].to_string(),
     );
 
     Ok(contract)
