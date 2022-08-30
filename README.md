@@ -13,6 +13,7 @@ The second milestone is to verify any recursive proof with the above settings.
 Things to do for this milestone:
 
 + [ ] implement evaluate_gate_constraints()
++ [ ] gas cost optimization
 
 Current Gas cost of verifying a 50kb proof is around 2.5m.
 

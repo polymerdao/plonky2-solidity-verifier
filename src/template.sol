@@ -263,12 +263,7 @@ contract Plonky2Verifier {
         return sum;
     }
 
-    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal view returns (bool) {
-        bool[4] memory oracles;
-        oracles[1] = true;
-        oracles[2] = true;
-        oracles[3] = true;
-
+    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
         // Precomputed reduced openings
         uint64[2][NUM_CHALLENGES] memory precomputed_reduced_evals;
         for (uint32 i = NUM_OPENINGS_QUOTIENT_POLYS; i > 0; i --) {
@@ -293,10 +288,19 @@ contract Plonky2Verifier {
             precomputed_reduced_evals[1] = le_bytes16_to_ext(proof.openings_plonk_zs_next[i - 1]).add(precomputed_reduced_evals[1].mul(challenges.fri_alpha));
         }
 
-        console.log(precomputed_reduced_evals[0][0]);
-        console.log(precomputed_reduced_evals[0][1]);
-        console.log(precomputed_reduced_evals[1][0]);
-        console.log(precomputed_reduced_evals[1][1]);
+        // CONSTANTS_SIGMAS, WIRES, ZS_PARTIAL_PRODUCTS, QUOTIENT
+        bool[4] memory oracles_blinding;
+        oracles_blinding[1] = true;
+        oracles_blinding[2] = true;
+        oracles_blinding[3] = true;
+        // SIZE_OF_LDE_DOMAIN
+        for (uint32 x_index = 0; x_index < NUM_FRI_QUERY_ROUND; x_index ++) {
+            // round_proof
+            // fri_verify_initial_proof
+            // n = SIZE_OF_LDE_DOMAIN
+            // instance = ?
+        }
+
         return true;
     }
 
@@ -308,7 +312,7 @@ contract Plonky2Verifier {
         return res;
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
+    function verify(Proof calldata proof_with_public_inputs) public pure returns (bool) {
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
         ProofChallenges memory challenges;
@@ -341,7 +345,7 @@ contract Plonky2Verifier {
             if (!zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg)))) return false;
         }
 
-        return verify_fri_proof(proof_with_public_inputs, challenges);
-        // return true;
+        // return verify_fri_proof(proof_with_public_inputs, challenges);
+        return true;
     }
 }
