@@ -93,8 +93,10 @@ contract Plonky2Verifier {
         uint32[NUM_FRI_QUERY_ROUND] fri_query_indices;
     }
 
-    function get_sigma_cap() internal pure returns (bytes25[SIGMAS_CAP_COUNT] memory sc) {
+    function get_sigma_cap() internal pure returns (bytes25[] memory) {
+        bytes25[] memory sc = new bytes25[](SIGMAS_CAP_COUNT);
         $SET_SIGMA_CAP;
+        return sc;
     }
 
     function get_k_is() internal pure returns (uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is) {
@@ -263,6 +265,50 @@ contract Plonky2Verifier {
         return sum;
     }
 
+    function verify_merkle_proof_to_cap_memory(uint32 leaf_index, bytes8[] calldata leaf_data, uint32 leaf_data_len,
+        bytes25[] calldata merkle_proof, uint32 merkle_proof_len,
+        bytes25[] memory merkle_caps) internal pure returns (bool) {
+        bytes memory m;
+        for (uint32 i = 0; i < leaf_data_len; i++) {
+            m = bytes.concat(m, leaf_data[i]);
+        }
+        bytes32 current_digest = keccak256(m);
+
+        for (uint32 i = 0; i < merkle_proof_len; i ++) {
+            uint32 bit = leaf_index & 1;
+            leaf_index = leaf_index >> 1;
+            if (bit == 1) {
+                current_digest = keccak256(abi.encodePacked(merkle_proof[i], bytes25(current_digest)));
+            } else {
+                current_digest = keccak256(abi.encodePacked(bytes25(current_digest), merkle_proof[i]));
+            }
+        }
+
+        return merkle_caps[leaf_index] == bytes25(current_digest);
+    }
+
+    function verify_merkle_proof_to_cap_calldata(uint32 leaf_index, bytes8[] calldata leaf_data, uint32 leaf_data_len,
+        bytes25[] calldata merkle_proof, uint32 merkle_proof_len,
+        bytes25[] calldata merkle_caps) internal pure returns (bool) {
+        bytes memory m;
+        for (uint32 i = 0; i < leaf_data_len; i++) {
+            m = bytes.concat(m, leaf_data[i]);
+        }
+        bytes32 current_digest = keccak256(m);
+
+        for (uint32 i = 0; i < merkle_proof_len; i ++) {
+            uint32 bit = leaf_index & 1;
+            leaf_index = leaf_index >> 1;
+            if (bit == 1) {
+                current_digest = keccak256(abi.encodePacked(merkle_proof[i], bytes25(current_digest)));
+            } else {
+                current_digest = keccak256(abi.encodePacked(bytes25(current_digest), merkle_proof[i]));
+            }
+        }
+
+        return merkle_caps[leaf_index] == bytes25(current_digest);
+    }
+
     function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
         // Precomputed reduced openings
         uint64[2][NUM_CHALLENGES] memory precomputed_reduced_evals;
@@ -299,11 +345,36 @@ contract Plonky2Verifier {
         g[1] = $G_FROM_DEGREE_BITS1;
         uint64[2] memory zeta_next;
         zeta_next = g.mul(challenges.plonk_zeta);
-        for (uint32 x_index = 0; x_index < NUM_FRI_QUERY_ROUND; x_index ++) {
-            // round_proof
-            // fri_verify_initial_proof
-            // n = SIZE_OF_LDE_DOMAIN
+        for (uint32 round = 0; round < NUM_FRI_QUERY_ROUND; round++) {
+            if (!verify_merkle_proof_to_cap_memory(challenges.fri_query_indices[round],
+                proof.fri_query_init_constants_sigmas_v[round], NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V,
+                proof.fri_query_init_constants_sigmas_p[round], NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P,
+                get_sigma_cap())) {
+                return false;
+            }
 
+            if (!verify_merkle_proof_to_cap_calldata(challenges.fri_query_indices[round],
+                proof.fri_query_init_wires_v[round], NUM_FRI_QUERY_INIT_WIRES_V,
+                proof.fri_query_init_wires_p[round], NUM_FRI_QUERY_INIT_WIRES_P,
+                proof.wires_cap)) {
+                return false;
+            }
+
+            if (!verify_merkle_proof_to_cap_calldata(challenges.fri_query_indices[round],
+                proof.fri_query_init_zs_partial_v[round], NUM_FRI_QUERY_INIT_ZS_PARTIAL_V,
+                proof.fri_query_init_zs_partial_p[round], NUM_FRI_QUERY_INIT_ZS_PARTIAL_P,
+                proof.plonk_zs_partial_products_cap)) {
+                return false;
+            }
+
+            if (!verify_merkle_proof_to_cap_calldata(challenges.fri_query_indices[round],
+                proof.fri_query_init_quotient_v[round], NUM_FRI_QUERY_INIT_QUOTIENT_V,
+                proof.fri_query_init_quotient_p[round], NUM_FRI_QUERY_INIT_QUOTIENT_P,
+                proof.quotient_polys_cap)) {
+                return false;
+            }
+
+            // n = SIZE_OF_LDE_DOMAIN
         }
 
         return true;
