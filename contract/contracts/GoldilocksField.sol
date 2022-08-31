@@ -73,6 +73,19 @@ library GoldilocksFieldLib {
         return add(a, a);
     }
 
+    function exp(uint64 x, uint64 n) internal pure returns (uint64) {
+        uint64 product = 1;
+        uint32 shift = 0;
+        while ((1 << shift) <= n) {
+            if ((n >> shift) & 1 > 0) {
+                product = mul(product, x);
+            }
+            x = square(x);
+            shift++;
+        }
+        return product;
+    }
+
     function trailing_zeros(uint64 a) internal pure returns (uint32 res) {
         if (a == 0) return 0;
         while (a & 1 == 0) {
@@ -82,18 +95,18 @@ library GoldilocksFieldLib {
         return res;
     }
 
-    /// Compute the inverse of 2^exp in this field.
-    function inverse_2exp(uint32 exp) internal pure returns (uint64) {
-        if (exp > CHARACTERISTIC_TWO_ADICITY) {
+    /// Compute the inverse of 2^x in this field.
+    function inverse_2exp(uint32 x) internal pure returns (uint64) {
+        if (x > CHARACTERISTIC_TWO_ADICITY) {
             uint64 res = INVERSE_2_POW_ADICITY;
-            uint32 e = exp - CHARACTERISTIC_TWO_ADICITY;
+            uint32 e = x - CHARACTERISTIC_TWO_ADICITY;
             while (e > CHARACTERISTIC_TWO_ADICITY) {
                 res = mul(res, INVERSE_2_POW_ADICITY);
                 e -= CHARACTERISTIC_TWO_ADICITY;
             }
             return mul(res, ORDER - ((ORDER - 1) >> uint64(e)));
         } else {
-            return ORDER - ((ORDER - 1) >> uint64(exp));
+            return ORDER - ((ORDER - 1) >> uint64(x));
         }
     }
 

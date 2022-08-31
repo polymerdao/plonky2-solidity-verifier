@@ -16,6 +16,7 @@ use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
 use plonky2::plonk::proof::ProofWithPublicInputs;
 use plonky2::plonk::prover::prove;
 use plonky2::util::timing::TimingTree;
+use plonky2_util::log2_strict;
 use serde::Serialize;
 
 pub fn encode_hex(bytes: &[u8]) -> String {
@@ -429,12 +430,22 @@ pub fn generate_solidity_verifier<
     );
     let g = F::Extension::primitive_root_of_unity(common.degree_bits);
     contract = contract.replace(
-        "$G_FROM_DEGREE_BITS0",
+        "$G_FROM_DEGREE_BITS_0",
         &g.to_basefield_array()[0].to_string(),
     );
     contract = contract.replace(
-        "$G_FROM_DEGREE_BITS1",
+        "$G_FROM_DEGREE_BITS_1",
         &g.to_basefield_array()[1].to_string(),
+    );
+    let log_n = log2_strict(common.fri_params.lde_size());
+    contract = contract.replace("$LOG_SIZE_OF_LDE_DOMAIN", &*log_n.to_string());
+    contract = contract.replace(
+        "$MULTIPLICATIVE_GROUP_GENERATOR",
+        &*F::MULTIPLICATIVE_GROUP_GENERATOR.to_string(),
+    );
+    contract = contract.replace(
+        "$PRIMITIVE_ROOT_OF_UNITY_LDE",
+        &*F::primitive_root_of_unity(log_n).to_string(),
     );
 
     Ok(contract)

@@ -309,6 +309,15 @@ contract Plonky2Verifier {
         return merkle_caps[leaf_index] == bytes25(current_digest);
     }
 
+    function reverse_bits(uint32 num, uint32 bits) internal pure returns (uint32) {
+        uint32 rev_num;
+        for (uint32 i = 0; i < bits; i++) {
+            rev_num = rev_num | ((num >> i) & 1);
+            rev_num = rev_num << 1;
+        }
+        return rev_num >> 1;
+    }
+
     function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
         // Precomputed reduced openings
         uint64[2][NUM_CHALLENGES] memory precomputed_reduced_evals;
@@ -341,8 +350,8 @@ contract Plonky2Verifier {
         oracles_blinding[3] = true;
         // SIZE_OF_LDE_DOMAIN
         uint64[2] memory g;
-        g[0] = $G_FROM_DEGREE_BITS0;
-        g[1] = $G_FROM_DEGREE_BITS1;
+        g[0] = $G_FROM_DEGREE_BITS_0;
+        g[1] = $G_FROM_DEGREE_BITS_1;
         uint64[2] memory zeta_next;
         zeta_next = g.mul(challenges.plonk_zeta);
         for (uint32 round = 0; round < NUM_FRI_QUERY_ROUND; round++) {
@@ -374,7 +383,12 @@ contract Plonky2Verifier {
                 return false;
             }
 
-            // n = SIZE_OF_LDE_DOMAIN
+            uint64 subgroup_x = GoldilocksFieldLib.mul($MULTIPLICATIVE_GROUP_GENERATOR,
+                GoldilocksFieldLib.exp($PRIMITIVE_ROOT_OF_UNITY_LDE,
+                reverse_bits(challenges.fri_query_indices[round], $LOG_SIZE_OF_LDE_DOMAIN)));
+
+            // old_eval is the last derived evaluation; it will be checked for consistency with its
+            // committed "parent" value in the next iteration.
         }
 
         return true;

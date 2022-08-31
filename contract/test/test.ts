@@ -245,6 +245,12 @@ describe("Verifier", function () {
 
             expect(await tests.test_inverse_2exp_109()).to.equal(2251799813160960n);
         });
+        it("test_exp", async function () {
+            const Contract = await ethers.getContractFactory("TestGoldilocks");
+            const tests = await Contract.deploy();
+
+            expect(await tests.test_exp()).to.equal(8162053712235223550n);
+        });
         it("test_exp_ext", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();

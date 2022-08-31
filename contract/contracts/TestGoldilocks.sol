@@ -46,6 +46,10 @@ contract TestGoldilocks {
         return GoldilocksFieldLib.inverse_2exp(109);
     }
 
+    function test_exp() public pure returns (uint64) {
+        return GoldilocksFieldLib.exp(3511170319078647661, 602096);
+    }
+
     function test_exp_ext() public pure returns (uint64[2] memory) {
         uint64[2] memory x;
         x[0] = 9076502759914437505;
