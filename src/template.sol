@@ -118,6 +118,10 @@ contract Plonky2Verifier {
         v = (v >> 32) | (v << 32);
     }
 
+    function le_bytes8_to_ext(bytes8 input) internal pure returns (uint64[2] memory res) {
+        res[0] = reverse(uint64(bytes8(input)));
+    }
+
     function le_bytes16_to_ext(bytes16 input) internal pure returns (uint64[2] memory res) {
         res[1] = reverse(uint64(bytes8(input << 64)));
         res[0] = reverse(uint64(bytes8(input)));
@@ -318,37 +322,57 @@ contract Plonky2Verifier {
         return rev_num >> 1;
     }
 
-    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
-        // Precomputed reduced openings
-        uint64[2][NUM_CHALLENGES] memory precomputed_reduced_evals;
+    function reduce1(Proof calldata proof, uint64[2] memory alpha) internal pure returns (uint64[2] memory evals) {
         for (uint32 i = NUM_OPENINGS_QUOTIENT_POLYS; i > 0; i --) {
-            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_quotient_polys[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+            evals = le_bytes16_to_ext(proof.openings_quotient_polys[i - 1]).add(evals.mul(alpha));
         }
         for (uint32 i = NUM_OPENINGS_PARTIAL_PRODUCTS; i > 0; i --) {
-            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_partial_products[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+            evals = le_bytes16_to_ext(proof.openings_partial_products[i - 1]).add(evals.mul(alpha));
         }
         for (uint32 i = NUM_OPENINGS_PLONK_ZS; i > 0; i --) {
-            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_plonk_zs[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+            evals = le_bytes16_to_ext(proof.openings_plonk_zs[i - 1]).add(evals.mul(alpha));
         }
         for (uint32 i = NUM_OPENINGS_WIRES; i > 0; i --) {
-            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_wires[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+            evals = le_bytes16_to_ext(proof.openings_wires[i - 1]).add(evals.mul(alpha));
         }
         for (uint32 i = NUM_OPENINGS_PLONK_SIGMAS; i > 0; i --) {
-            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_plonk_sigmas[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+            evals = le_bytes16_to_ext(proof.openings_plonk_sigmas[i - 1]).add(evals.mul(alpha));
         }
         for (uint32 i = NUM_OPENINGS_CONSTANTS; i > 0; i --) {
-            precomputed_reduced_evals[0] = le_bytes16_to_ext(proof.openings_constants[i - 1]).add(precomputed_reduced_evals[0].mul(challenges.fri_alpha));
+            evals = le_bytes16_to_ext(proof.openings_constants[i - 1]).add(evals.mul(alpha));
         }
+    }
+
+    function reduce2(Proof calldata proof, uint32 round, uint64[2] memory alpha) internal pure returns (uint64[2] memory evals) {
+        // bool constants_sigmas_blinding = false;
+        // bool other_oracles_blinding = $ZERO_KNOWLEDGE;
+        for (uint32 i = NUM_FRI_QUERY_INIT_QUOTIENT_V; i > 0; i --) {
+            evals = le_bytes8_to_ext(proof.fri_query_init_quotient_v[round][i - 1]).add(evals.mul(alpha));
+        }
+        for (uint32 i = NUM_FRI_QUERY_INIT_ZS_PARTIAL_V; i > 0; i --) {
+            evals = le_bytes8_to_ext(proof.fri_query_init_zs_partial_v[round][i - 1]).add(evals.mul(alpha));
+        }
+        for (uint32 i = NUM_FRI_QUERY_INIT_WIRES_V; i > 0; i --) {
+            evals = le_bytes8_to_ext(proof.fri_query_init_wires_v[round][i - 1]).add(evals.mul(alpha));
+        }
+        for (uint32 i = NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V; i > 0; i --) {
+            evals = le_bytes8_to_ext(proof.fri_query_init_constants_sigmas_v[round][i - 1]).add(evals.mul(alpha));
+        }
+    }
+
+    function reduce3(Proof calldata proof, uint32 round, uint64[2] memory alpha) internal pure returns (uint64[2] memory evals) {
+        for (uint32 i = NUM_CHALLENGES; i > 0; i --) {
+            evals = le_bytes8_to_ext(proof.fri_query_init_zs_partial_v[round][i - 1]).add(evals.mul(alpha));
+        }
+    }
+
+    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
+        // Precomputed reduced openings
+        uint64[2][2] memory precomputed_reduced_evals;
+        precomputed_reduced_evals[0] = reduce1(proof, challenges.fri_alpha);
         for (uint32 i = NUM_OPENINGS_PLONK_ZS_NEXT; i > 0; i --) {
             precomputed_reduced_evals[1] = le_bytes16_to_ext(proof.openings_plonk_zs_next[i - 1]).add(precomputed_reduced_evals[1].mul(challenges.fri_alpha));
         }
-
-        // CONSTANTS_SIGMAS, WIRES, ZS_PARTIAL_PRODUCTS, QUOTIENT
-        bool[4] memory oracles_blinding;
-        oracles_blinding[1] = true;
-        oracles_blinding[2] = true;
-        oracles_blinding[3] = true;
-        // SIZE_OF_LDE_DOMAIN
         uint64[2] memory g;
         g[0] = $G_FROM_DEGREE_BITS_0;
         g[1] = $G_FROM_DEGREE_BITS_1;
@@ -383,12 +407,22 @@ contract Plonky2Verifier {
                 return false;
             }
 
-            uint64 subgroup_x = GoldilocksFieldLib.mul($MULTIPLICATIVE_GROUP_GENERATOR,
+            uint64[2] memory sum;
+            uint64[2] memory subgroup_x;
+            subgroup_x[0] = GoldilocksFieldLib.mul($MULTIPLICATIVE_GROUP_GENERATOR,
                 GoldilocksFieldLib.exp($PRIMITIVE_ROOT_OF_UNITY_LDE,
                 reverse_bits(challenges.fri_query_indices[round], $LOG_SIZE_OF_LDE_DOMAIN)));
 
-            // old_eval is the last derived evaluation; it will be checked for consistency with its
-            // committed "parent" value in the next iteration.
+            sum = challenges.fri_alpha.exp(NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V + NUM_FRI_QUERY_INIT_WIRES_V +
+            NUM_FRI_QUERY_INIT_ZS_PARTIAL_V + NUM_FRI_QUERY_INIT_ZS_PARTIAL_V).mul(sum);
+            sum = sum.add(reduce2(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[0])
+            .div(subgroup_x.sub(challenges.plonk_zeta)));
+
+            sum = challenges.fri_alpha.exp(NUM_CHALLENGES).mul(sum);
+            sum = sum.add(reduce3(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[1])
+            .div(subgroup_x.sub(zeta_next)));
+
+            uint64[2] memory old_eval = sum.mul(subgroup_x);
         }
 
         return true;

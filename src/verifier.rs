@@ -447,6 +447,11 @@ pub fn generate_solidity_verifier<
         "$PRIMITIVE_ROOT_OF_UNITY_LDE",
         &*F::primitive_root_of_unity(log_n).to_string(),
     );
+    // TODO: add test with config zero_knoledge = true
+    contract = contract.replace(
+        "$ZERO_KNOWLEDGE",
+        &*common.config.zero_knowledge.to_string(),
+    );
 
     Ok(contract)
 }
