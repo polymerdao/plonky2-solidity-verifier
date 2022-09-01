@@ -301,6 +301,21 @@ pub fn generate_solidity_verifier<
     }
     contract = contract.replace("        $SET_K_IS;\n", &*k_is_str);
 
+    let reduction_arity_bits = &common.fri_params.reduction_arity_bits;
+    assert_eq!(reduction_arity_bits.len(), 2);
+    let mut reduction_arity_bits_str = "".to_owned();
+    for i in 0..reduction_arity_bits.len() {
+        reduction_arity_bits_str += &*("        bits[".to_owned()
+            + &*i.to_string()
+            + "] = "
+            + &*reduction_arity_bits[i].to_string()
+            + ";\n");
+    }
+    contract = contract.replace(
+        "        $SET_REDUCTION_ARITY_BITS;\n",
+        &*reduction_arity_bits_str,
+    );
+
     contract = contract.replace("$NUM_WIRES_CAP", &*conf.num_wires_cap.to_string());
     contract = contract.replace(
         "$NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP",

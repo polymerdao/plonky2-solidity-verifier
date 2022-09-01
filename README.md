@@ -7,6 +7,7 @@ Things to do for the above milestone:
 
 + [ ] implement verify_fri_proof()
 + [ ] support public inputs
++ [ ] test with zk enabled
 
 The second milestone is to verify any recursive proof with the above settings.
 

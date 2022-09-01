@@ -103,6 +103,10 @@ contract Plonky2Verifier {
         $SET_K_IS;
     }
 
+    function get_reduction_arity_bits() internal pure returns (uint32[2] memory bits) {
+        $SET_REDUCTION_ARITY_BITS;
+    }
+
     function reverse(uint64 input) internal pure returns (uint64 v) {
         v = input;
 
@@ -423,6 +427,9 @@ contract Plonky2Verifier {
             .div(subgroup_x.sub(zeta_next)));
 
             uint64[2] memory old_eval = sum.mul(subgroup_x);
+            for (uint32 i = 0; i < 2; i++) {
+
+            }
         }
 
         return true;
@@ -469,7 +476,7 @@ contract Plonky2Verifier {
             if (!zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg)))) return false;
         }
 
-        // return verify_fri_proof(proof_with_public_inputs, challenges);
-        return true;
+        return verify_fri_proof(proof_with_public_inputs, challenges);
+        // return true;
     }
 }
