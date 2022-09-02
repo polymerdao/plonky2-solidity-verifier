@@ -302,7 +302,6 @@ pub fn generate_solidity_verifier<
     contract = contract.replace("        $SET_K_IS;\n", &*k_is_str);
 
     let reduction_arity_bits = &common.fri_params.reduction_arity_bits;
-    assert_eq!(reduction_arity_bits.len(), 2);
     let mut reduction_arity_bits_str = "".to_owned();
     for i in 0..reduction_arity_bits.len() {
         reduction_arity_bits_str += &*("        bits[".to_owned()
@@ -314,6 +313,10 @@ pub fn generate_solidity_verifier<
     contract = contract.replace(
         "        $SET_REDUCTION_ARITY_BITS;\n",
         &*reduction_arity_bits_str,
+    );
+    contract = contract.replace(
+        "$NUM_REDUCTION_ARITY_BITS",
+        &*reduction_arity_bits.len().to_string(),
     );
 
     contract = contract.replace("$NUM_WIRES_CAP", &*conf.num_wires_cap.to_string());
@@ -467,6 +470,12 @@ pub fn generate_solidity_verifier<
         "$ZERO_KNOWLEDGE",
         &*common.config.zero_knowledge.to_string(),
     );
+    let g = F::primitive_root_of_unity(1);
+    contract = contract.replace("$G_ARITY_BITS_1", &g.to_string());
+    let g = F::primitive_root_of_unity(2);
+    contract = contract.replace("$G_ARITY_BITS_2", &g.to_string());
+    let g = F::primitive_root_of_unity(3);
+    contract = contract.replace("$G_ARITY_BITS_3", &g.to_string());
 
     Ok(contract)
 }

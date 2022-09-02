@@ -50,6 +50,7 @@ contract Plonky2Verifier {
     uint32 constant DEGREE_BITS = $DEGREE_BITS;
     uint32 constant NUM_GATE_CONSTRAINTS = $NUM_GATE_CONSTRAINTS;
     uint32 constant QUOTIENT_DEGREE_FACTOR = $QUOTIENT_DEGREE_FACTOR;
+    uint32 constant NUM_REDUCTION_ARITY_BITS = $NUM_REDUCTION_ARITY_BITS;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -103,8 +104,16 @@ contract Plonky2Verifier {
         $SET_K_IS;
     }
 
-    function get_reduction_arity_bits() internal pure returns (uint32[2] memory bits) {
+    function get_reduction_arity_bits() internal pure returns (uint32[NUM_REDUCTION_ARITY_BITS] memory bits) {
         $SET_REDUCTION_ARITY_BITS;
+    }
+
+    function get_g_by_arity_bits(uint32 arity_bits) internal pure returns (uint64) {
+        uint64[3] memory g_arity_bits;
+        g_arity_bits[0] = $G_ARITY_BITS_1;
+        g_arity_bits[1] = $G_ARITY_BITS_2;
+        g_arity_bits[2] = $G_ARITY_BITS_3;
+        return g_arity_bits[arity_bits - 1];
     }
 
     function reverse(uint64 input) internal pure returns (uint64 v) {
@@ -370,6 +379,60 @@ contract Plonky2Verifier {
         }
     }
 
+    // TODO: optimization barycentric_weights calculations
+    function cal_barycentric_weights(uint64[2][8] memory points, uint32 arity) internal pure returns (uint64[2][8] memory barycentric_weights) {
+        barycentric_weights[0][0] = points[0][0].sub(points[1][0]);
+        for (uint32 j = 2; j < arity; j++) {
+            barycentric_weights[0][0] = barycentric_weights[0][0].mul(points[0][0].sub(points[j][0]));
+        }
+        for (uint32 j = 1; j < arity; j++) {
+            barycentric_weights[j][0] = points[j][0].sub(points[0][0]);
+            for (uint32 k = 1; k < arity; k++) {
+                if (j != k) {
+                    barycentric_weights[j][0] = barycentric_weights[j][0].mul(points[j][0].sub(points[k][0]));
+                }
+            }
+        }
+        for (uint32 j = 0; j < arity; j++) {
+            barycentric_weights[j][0] = barycentric_weights[j][0].inverse();
+        }
+        return barycentric_weights;
+    }
+
+    function get_points(uint32 arity_bits, uint32 x_index_within_coset, uint64 subgroup_x) internal pure returns (uint64[2][8] memory points) {
+        uint32 arity = uint32(1 << arity_bits);
+        uint64 g_arity = get_g_by_arity_bits(arity_bits);
+        uint32 rev_x_index_within_coset = reverse_bits(x_index_within_coset, arity_bits);
+        points[0][0] = subgroup_x.mul(g_arity.exp(arity - rev_x_index_within_coset));
+        for (uint32 i = 1; i < arity; i++) {
+            points[i][0] = points[i - 1][0].mul(g_arity);
+        }
+    }
+
+    function compute_evaluation(Proof calldata proof, uint64[2] memory fri_beta, uint32 round, uint32 reduction,
+        uint32 arity_bits, uint64[2][8] memory points) internal pure returns (uint64[2] memory){
+        uint64[2][8] memory barycentric_weights = cal_barycentric_weights(points, uint32(1 << arity_bits));
+
+        // Interpolate
+        // Check if Lagrange formula would divide by zero?
+        uint64[2] memory l_x;
+        l_x = fri_beta.sub(points[0]);
+        for (uint32 i = 1; i < uint32(1 << arity_bits); i++) {
+            l_x = l_x.mul(fri_beta.sub(points[i]));
+        }
+        uint64[2] memory sum;
+        for (uint32 i = 0; i < uint32(1 << arity_bits); i++) {
+            if (reduction == 0) {
+                sum = sum.add(barycentric_weights[i].div(fri_beta.sub(points[i]))
+                .mul(le_bytes16_to_ext(proof.fri_query_step0_v[round][reverse_bits(i, arity_bits)])));
+            } else {
+                sum = sum.add(barycentric_weights[i].div(fri_beta.sub(points[i]))
+                .mul(le_bytes16_to_ext(proof.fri_query_step1_v[round][reverse_bits(i, arity_bits)])));
+            }
+        }
+        return l_x.mul(sum);
+    }
+
     function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
         // Precomputed reduced openings
         uint64[2][2] memory precomputed_reduced_evals;
@@ -377,11 +440,13 @@ contract Plonky2Verifier {
         for (uint32 i = NUM_OPENINGS_PLONK_ZS_NEXT; i > 0; i --) {
             precomputed_reduced_evals[1] = le_bytes16_to_ext(proof.openings_plonk_zs_next[i - 1]).add(precomputed_reduced_evals[1].mul(challenges.fri_alpha));
         }
-        uint64[2] memory g;
-        g[0] = $G_FROM_DEGREE_BITS_0;
-        g[1] = $G_FROM_DEGREE_BITS_1;
         uint64[2] memory zeta_next;
-        zeta_next = g.mul(challenges.plonk_zeta);
+        {
+            uint64[2] memory g;
+            g[0] = $G_FROM_DEGREE_BITS_0;
+            g[1] = $G_FROM_DEGREE_BITS_1;
+            zeta_next = g.mul(challenges.plonk_zeta);
+        }
         for (uint32 round = 0; round < NUM_FRI_QUERY_ROUND; round++) {
             if (!verify_merkle_proof_to_cap_memory(challenges.fri_query_indices[round],
                 proof.fri_query_init_constants_sigmas_v[round], NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V,
@@ -411,27 +476,51 @@ contract Plonky2Verifier {
                 return false;
             }
 
-            uint64[2] memory sum;
+            uint64[2] memory old_eval;
             uint64[2] memory subgroup_x;
-            subgroup_x[0] = GoldilocksFieldLib.mul($MULTIPLICATIVE_GROUP_GENERATOR,
-                GoldilocksFieldLib.exp($PRIMITIVE_ROOT_OF_UNITY_LDE,
-                reverse_bits(challenges.fri_query_indices[round], $LOG_SIZE_OF_LDE_DOMAIN)));
+            {
+                uint64[2] memory sum;
+                subgroup_x[0] = GoldilocksFieldLib.mul($MULTIPLICATIVE_GROUP_GENERATOR,
+                    GoldilocksFieldLib.exp($PRIMITIVE_ROOT_OF_UNITY_LDE,
+                    reverse_bits(challenges.fri_query_indices[round], $LOG_SIZE_OF_LDE_DOMAIN)));
 
-            sum = challenges.fri_alpha.exp(NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V + NUM_FRI_QUERY_INIT_WIRES_V +
-            NUM_FRI_QUERY_INIT_ZS_PARTIAL_V + NUM_FRI_QUERY_INIT_ZS_PARTIAL_V).mul(sum);
-            sum = sum.add(reduce2(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[0])
-            .div(subgroup_x.sub(challenges.plonk_zeta)));
+                sum = challenges.fri_alpha.exp(NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V + NUM_FRI_QUERY_INIT_WIRES_V +
+                NUM_FRI_QUERY_INIT_ZS_PARTIAL_V + NUM_FRI_QUERY_INIT_ZS_PARTIAL_V).mul(sum);
+                sum = sum.add(reduce2(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[0])
+                .div(subgroup_x.sub(challenges.plonk_zeta)));
 
-            sum = challenges.fri_alpha.exp(NUM_CHALLENGES).mul(sum);
-            sum = sum.add(reduce3(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[1])
-            .div(subgroup_x.sub(zeta_next)));
+                sum = challenges.fri_alpha.exp(NUM_CHALLENGES).mul(sum);
+                sum = sum.add(reduce3(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[1])
+                .div(subgroup_x.sub(zeta_next)));
 
-            uint64[2] memory old_eval = sum.mul(subgroup_x);
-            for (uint32 i = 0; i < 2; i++) {
-
+                old_eval = sum.mul(subgroup_x);
             }
-        }
+            uint32[NUM_REDUCTION_ARITY_BITS] memory arity_bits = get_reduction_arity_bits();
+            for (uint32 i = 0; i < NUM_REDUCTION_ARITY_BITS; i++) {
+                uint32 arity = uint32(1 << arity_bits[i]);
+                uint32 coset_index = challenges.fri_query_indices[round] >> arity_bits[i];
+                uint32 x_index_within_coset = challenges.fri_query_indices[round] & (arity - 1);
+                uint64[2] memory eval;
+                if (i == 0) {
+                    eval = le_bytes16_to_ext(proof.fri_query_step0_v[round][x_index_within_coset]);
+                } else {
+                    eval = le_bytes16_to_ext(proof.fri_query_step1_v[round][x_index_within_coset]);
+                }
+                //if (!eval.equal(old_eval)) return false;
+                uint64[2][8] memory points = get_points(arity_bits[i], x_index_within_coset, subgroup_x[0]);
+                old_eval = compute_evaluation(proof, challenges.fri_betas[i], round, i, arity_bits[i], points);
 
+                // TODO: verify_merkle_proof_to_cap
+
+                // Update the point x to x^arity.
+                subgroup_x[0] = subgroup_x[0].exp_power_of_2(arity_bits[i]);
+                challenges.fri_query_indices[round] = coset_index;
+            }
+
+            // TODO: Final check of FRI. After all the reductions, we check that the final polynomial is equal
+            // to the one sent by the prover.
+
+        }
         return true;
     }
 

@@ -86,6 +86,14 @@ library GoldilocksFieldLib {
         return product;
     }
 
+    function exp_power_of_2(uint64 a, uint32 power_log) internal pure returns (uint64 res) {
+        res = a;
+        for (uint32 i = 0; i < power_log; i++) {
+            res = square(res);
+        }
+        return res;
+    }
+
     function trailing_zeros(uint64 a) internal pure returns (uint32 res) {
         if (a == 0) return 0;
         while (a & 1 == 0) {
