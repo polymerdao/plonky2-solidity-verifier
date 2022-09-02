@@ -1,11 +1,17 @@
 # Solidity verifier for Plonky2
 
+Updates
+-----
+- **9/2/2022** Implemented verify_fri_proof(). This project is close to the first milestone and the current gas cost of verifying a 50kb proof is around 4m.
+
+Milestones
+-----
 The first milestone of this project is to verify a dummy plonky2 proof with high_rate_config, GoldilocksField,
 QuadraticExtension and KeccakHash<25>.
 
 Things to do for the above milestone:
 
-+ [ ] implement verify_fri_proof()
++ [x] implement verify_fri_proof()
 + [ ] support public inputs
 + [ ] test with zk enabled
 
@@ -16,8 +22,8 @@ Things to do for this milestone:
 + [ ] implement evaluate_gate_constraints()
 + [ ] gas cost optimization
 
-Current Gas cost of verifying a 50kb proof is around 2.5m.
-
+Results
+-----
 Run tests with the following command lines.
 
 ```shell
@@ -34,7 +40,6 @@ successes:
 
 test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 1 filtered out; finished in 4.27s
 
-  Verifier
     Verify
 proof size: 50855
       ✓ Should verify the proof
@@ -46,6 +51,7 @@ proof size: 50855
       ✓ test_div_ext
       ✓ test_inverse_2exp_12
       ✓ test_inverse_2exp_109
+      ✓ test_exp
       ✓ test_exp_ext
       ✓ test_u160_times_7
       ✓ test_repeated_frobenius
@@ -63,15 +69,16 @@ proof size: 50855
 ·············|··········|·············|·············|·············|···············|··············
 |  Deployments          ·                                         ·  % of limit   ·             │
 ························|·············|·············|·············|···············|··············
-|  Plonky2Verifier      ·          -  ·          -  ·    2492500  ·        8.3 %  ·          -  │
+|  Plonky2Verifier      ·          -  ·          -  ·    4021066  ·       13.4 %  ·          -  │
 ························|·············|·············|·············|···············|··············
-|  TestChallenger       ·          -  ·          -  ·     625046  ·        2.1 %  ·          -  │
+|  TestChallenger       ·          -  ·          -  ·     625034  ·        2.1 %  ·          -  │
 ························|·············|·············|·············|···············|··············
-|  TestGoldilocks       ·          -  ·          -  ·     977910  ·        3.3 %  ·          -  │
+|  TestGoldilocks       ·          -  ·          -  ·    1008362  ·        3.4 %  ·          -  │
 ························|·············|·············|·············|···············|··············
 |  TestPlonk            ·          -  ·          -  ·     887669  ·          3 %  ·          -  │
 ·-----------------------|-------------|-------------|-------------|---------------|-------------·
 
-  13 passing (3s)
+  14 passing (38s)
+
 ```
 
