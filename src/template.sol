@@ -326,6 +326,46 @@ contract Plonky2Verifier {
         return merkle_caps[leaf_index] == bytes25(current_digest);
     }
 
+    function verify_merkle_proof_to_cap_step0(Proof calldata proof, uint32 leaf_index, uint32 round) internal pure returns (bool) {
+        bytes memory m;
+        for (uint32 i = 0; i < NUM_FRI_QUERY_STEP0_V; i++) {
+            m = bytes.concat(m, proof.fri_query_step0_v[round][i]);
+        }
+        bytes32 current_digest = keccak256(m);
+
+        for (uint32 i = 0; i < NUM_FRI_QUERY_STEP0_P; i ++) {
+            uint32 bit = leaf_index & 1;
+            leaf_index = leaf_index >> 1;
+            if (bit == 1) {
+                current_digest = keccak256(abi.encodePacked(proof.fri_query_step0_p[round][i], bytes25(current_digest)));
+            } else {
+                current_digest = keccak256(abi.encodePacked(bytes25(current_digest), proof.fri_query_step0_p[round][i]));
+            }
+        }
+
+        return proof.fri_commit_phase_merkle_caps[0][leaf_index] == bytes25(current_digest);
+    }
+
+    function verify_merkle_proof_to_cap_step1(Proof calldata proof, uint32 leaf_index, uint32 round) internal pure returns (bool) {
+        bytes memory m;
+        for (uint32 i = 0; i < NUM_FRI_QUERY_STEP1_V; i++) {
+            m = bytes.concat(m, proof.fri_query_step1_v[round][i]);
+        }
+        bytes32 current_digest = keccak256(m);
+
+        for (uint32 i = 0; i < NUM_FRI_QUERY_STEP1_P; i ++) {
+            uint32 bit = leaf_index & 1;
+            leaf_index = leaf_index >> 1;
+            if (bit == 1) {
+                current_digest = keccak256(abi.encodePacked(proof.fri_query_step1_p[round][i], bytes25(current_digest)));
+            } else {
+                current_digest = keccak256(abi.encodePacked(bytes25(current_digest), proof.fri_query_step1_p[round][i]));
+            }
+        }
+
+        return proof.fri_commit_phase_merkle_caps[1][leaf_index] == bytes25(current_digest);
+    }
+
     function reverse_bits(uint32 num, uint32 bits) internal pure returns (uint32) {
         uint32 rev_num;
         for (uint32 i = 0; i < bits; i++) {
@@ -510,16 +550,25 @@ contract Plonky2Verifier {
                 uint64[2][8] memory points = get_points(arity_bits[i], x_index_within_coset, subgroup_x[0]);
                 old_eval = compute_evaluation(proof, challenges.fri_betas[i], round, i, arity_bits[i], points);
 
-                // TODO: verify_merkle_proof_to_cap
+                if (i == 0 && !verify_merkle_proof_to_cap_step0(proof, coset_index, round)) {
+                    return false;
+                }
+                if (i == 1 && !verify_merkle_proof_to_cap_step1(proof, coset_index, round)) {
+                    return false;
+                }
 
                 // Update the point x to x^arity.
                 subgroup_x[0] = subgroup_x[0].exp_power_of_2(arity_bits[i]);
                 challenges.fri_query_indices[round] = coset_index;
             }
 
-            // TODO: Final check of FRI. After all the reductions, we check that the final polynomial is equal
+            // Final check of FRI. After all the reductions, we check that the final polynomial is equal
             // to the one sent by the prover.
-
+            uint64[2] memory final_eval;
+            for (uint32 i = NUM_FRI_FINAL_POLY_EXT_V; i > 0; i--) {
+                final_eval = le_bytes16_to_ext(proof.fri_final_poly_ext_v[i - 1]).add(final_eval.mul(subgroup_x));
+            }
+            if (!old_eval.equal(final_eval)) return false;
         }
         return true;
     }
