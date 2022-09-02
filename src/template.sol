@@ -566,6 +566,5 @@ contract Plonky2Verifier {
         }
 
         return verify_fri_proof(proof_with_public_inputs, challenges);
-        // return true;
     }
 }
