@@ -491,6 +491,7 @@ mod tests {
     use plonky2::fri::reduction_strategies::FriReductionStrategy;
     use plonky2::fri::FriConfig;
     use plonky2::hash::hash_types::RichField;
+    use plonky2::iop::witness::Witness;
     use plonky2::plonk::circuit_data::{CommonCircuitData, VerifierOnlyCircuitData};
     use plonky2::plonk::config::Hasher;
     use plonky2::plonk::proof::ProofWithPublicInputs;
@@ -514,6 +515,7 @@ mod tests {
     fn dummy_proof<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         config: &CircuitConfig,
         num_dummy_gates: u64,
+        num_public_inputs: u64,
     ) -> Result<(
         ProofWithPublicInputs<F, C, D>,
         VerifierOnlyCircuitData<C, D>,
@@ -526,9 +528,19 @@ mod tests {
         for _ in 0..num_dummy_gates {
             builder.add_gate(NoopGate, vec![]);
         }
+        let mut pi = Vec::new();
+        if num_public_inputs > 0 {
+            pi = builder.add_virtual_targets(num_public_inputs as usize);
+            builder.register_public_inputs(&pi);
+        }
 
         let data = builder.build::<C>();
-        let inputs = PartialWitness::new();
+        let mut inputs = PartialWitness::new();
+        if num_public_inputs > 0 {
+            for i in 0..num_public_inputs {
+                inputs.set_target(pi[0], F::from_canonical_u64(i));
+            }
+        }
         let proof = data.prove(inputs)?;
         data.verify(proof.clone())?;
 
@@ -564,7 +576,61 @@ mod tests {
             ..high_rate_config
         };
 
-        let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 0)?;
+
+        let conf = generate_verifier_config(&proof)?;
+        let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
+
+        let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
+        sol_file.write_all(contract.as_bytes())?;
+
+        let proof_base64 = generate_proof_base64(&proof, &conf)?;
+        let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
+
+        if !Path::new("./contract/test/data").is_dir() {
+            std::fs::create_dir("./contract/test/data")?;
+        }
+
+        let mut proof_file = File::create("./contract/test/data/proof.json")?;
+        proof_file.write_all(proof_json.as_bytes())?;
+
+        let mut conf_file = File::create("./contract/test/data/conf.json")?;
+        conf_file.write_all(serde_json::to_string(&conf)?.as_ref())?;
+
+        Ok(())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_verifier_with_public_inputs() -> Result<()> {
+        const D: usize = 2;
+        type KC2 = KeccakGoldilocksConfig2;
+        type F = <KC2 as GenericConfig<D>>::F;
+        let standard_config = CircuitConfig::standard_recursion_config();
+        // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
+        let high_rate_config = CircuitConfig {
+            fri_config: FriConfig {
+                rate_bits: 7,
+                proof_of_work_bits: 16,
+                num_query_rounds: 12,
+                ..standard_config.fri_config.clone()
+            },
+            ..standard_config
+        };
+        // A final proof, optimized for size.
+        let final_config = CircuitConfig {
+            num_routed_wires: 37,
+            fri_config: FriConfig {
+                rate_bits: 8,
+                cap_height: 0,
+                proof_of_work_bits: 20,
+                reduction_strategy: FriReductionStrategy::MinSize(None),
+                num_query_rounds: 10,
+            },
+            ..high_rate_config
+        };
+
+        let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 100)?;
 
         let conf = generate_verifier_config(&proof)?;
         let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
@@ -597,7 +663,7 @@ mod tests {
         type KC2 = KeccakGoldilocksConfig2;
         let standard_config = CircuitConfig::standard_recursion_config();
 
-        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000)?;
+        let (proof, vd, cd) = dummy_proof::<F, C, D>(&standard_config, 4_000, 0)?;
 
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
