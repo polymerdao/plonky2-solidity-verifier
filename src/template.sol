@@ -546,7 +546,7 @@ contract Plonky2Verifier {
                 } else {
                     eval = le_bytes16_to_ext(proof.fri_query_step1_v[round][x_index_within_coset]);
                 }
-                //if (!eval.equal(old_eval)) return false;
+                if (!eval.equal(old_eval)) return false;
                 uint64[2][8] memory points = get_points(arity_bits[i], x_index_within_coset, subgroup_x[0]);
                 old_eval = compute_evaluation(proof, challenges.fri_betas[i], round, i, arity_bits[i], points);
 
