@@ -147,14 +147,10 @@ contract Plonky2Verifier {
         uint64 u4 = challenger.get_challenge();
         uint64 u5 = uint64(pow_witness);
 
-        ChallengerLib.Challenger memory new_challenger;
-        new_challenger.observe_element(bytes8(reverse(u1)));
-        new_challenger.observe_element(bytes8(reverse(u2)));
-        new_challenger.observe_element(bytes8(reverse(u3)));
-        new_challenger.observe_element(bytes8(reverse(u4)));
-        new_challenger.observe_element(bytes8(u5));
+        bytes32 h = keccak256(abi.encodePacked(bytes8(reverse(u1)), bytes8(reverse(u2)), bytes8(reverse(u3)),
+            bytes8(reverse(u4)), bytes8(u5)));
 
-        res = new_challenger.get_challenge();
+        res = reverse(uint64(bytes8(h)));
     }
 
     function get_challenges(Proof calldata proof, ProofChallenges memory challenges) internal pure {

@@ -4,10 +4,9 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use plonky2::hash::hashing::SPONGE_WIDTH;
 use plonky2::hash::keccak::{KeccakHash, KeccakPermutation};
-use plonky2::iop::challenger::Challenger;
 use plonky2::iop::target::{BoolTarget, Target};
 use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, Hasher};
+use plonky2::plonk::config::{AlgebraicHasher, GenericConfig, GenericHashOut, Hasher};
 
 /// Configuration using truncated Keccak over the Goldilocks field.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -33,17 +32,8 @@ impl<F: RichField> Hasher<F> for AlgebraicKeccakHash {
         if input.len() == 0 {
             return HashOut::from_vec([F::ZERO, F::ZERO, F::ZERO, F::ZERO].to_vec());
         }
-        let mut challenger = Challenger::<F, KeccakHash<32>>::new();
-        challenger.observe_elements(input);
-        HashOut::from_vec(
-            [
-                challenger.get_challenge(),
-                challenger.get_challenge(),
-                challenger.get_challenge(),
-                challenger.get_challenge(),
-            ]
-            .to_vec(),
-        )
+        let bytes_hash = KeccakHash::<32>::hash_no_pad(input);
+        HashOut::from_bytes(&bytes_hash.0)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
@@ -87,10 +77,10 @@ mod tests {
         v.push(F::from_canonical_u64(17277322750214136960u64));
         v.push(F::from_canonical_u64(1441151880423231822u64));
         let h = AlgebraicKeccakHash::hash_no_pad(&v);
-        assert_eq!(h.elements[0].0, 10556094283316u64);
-        assert_eq!(h.elements[1].0, 2969885698010629776u64);
-        assert_eq!(h.elements[2].0, 891839585018115537u64);
-        assert_eq!(h.elements[3].0, 6951606774775366384u64);
+        assert_eq!(h.elements[0].0, 5457815305841349545u64);
+        assert_eq!(h.elements[1].0, 8842690375664641093u64);
+        assert_eq!(h.elements[2].0, 1933753955848180559u64);
+        assert_eq!(h.elements[3].0, 13467638159094989556u64);
 
         Ok(())
     }

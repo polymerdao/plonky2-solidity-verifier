@@ -13,7 +13,6 @@ Things to do for the above milestone:
 
 + [x] implement verify_fri_proof()
 + [ ] support public inputs
-+ [ ] test with zk enabled
 
 The second milestone is to verify any recursive proof with the above settings.
 
@@ -21,6 +20,7 @@ Things to do for this milestone:
 
 + [ ] implement evaluate_gate_constraints()
 + [ ] gas cost optimization
++ [ ] zero knowledge support
 
 Results
 -----
