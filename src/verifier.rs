@@ -505,7 +505,7 @@ mod tests {
         },
     };
 
-    use crate::config::KeccakGoldilocksConfig2;
+    use crate::config::{KeccakGoldilocksConfig2, Sha256GoldilocksConfig};
     use crate::verifier::{
         generate_proof_base64, generate_solidity_verifier, generate_verifier_config,
         recursive_proof,
@@ -538,7 +538,7 @@ mod tests {
         let mut inputs = PartialWitness::new();
         if num_public_inputs > 0 {
             for i in 0..num_public_inputs {
-                inputs.set_target(pi[0], F::from_canonical_u64(i));
+                inputs.set_target(pi[i as usize], F::from_canonical_u64(i));
             }
         }
         let proof = data.prove(inputs)?;
@@ -601,11 +601,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_verifier_with_public_inputs() -> Result<()> {
         const D: usize = 2;
-        type KC2 = KeccakGoldilocksConfig2;
-        type F = <KC2 as GenericConfig<D>>::F;
+        type SC = Sha256GoldilocksConfig;
+        type F = <SC as GenericConfig<D>>::F;
         let standard_config = CircuitConfig::standard_recursion_config();
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
@@ -630,7 +629,7 @@ mod tests {
             ..high_rate_config
         };
 
-        let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 100)?;
+        let (proof, vd, cd) = dummy_proof::<F, SC, D>(&final_config, 4_000, 2)?;
 
         let conf = generate_verifier_config(&proof)?;
         let contract = generate_solidity_verifier(&conf, &cd, &vd)?;

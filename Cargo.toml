@@ -6,8 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-plonky2 = { git = "https://github.com/polymerdao/plonky2", rev = "d844e9f1" }
-plonky2_util = { git = "https://github.com/polymerdao/plonky2", rev = "d844e9f1" }
+plonky2 = { git = "https://github.com/polymerdao/plonky2", rev = "9c4e4ed5" }
+plonky2_util = { git = "https://github.com/polymerdao/plonky2", rev = "9c4e4ed5" }
+plonky2_sha256 = { git = "https://github.com/polymerdao/plonky2-sha256", rev = "2698a3be" }
 anyhow = "1.0.40"
 log = "0.4.14"
 env_logger = "0.9.0"
@@ -15,6 +16,8 @@ base64 = "0.13.0"
 serde = { version = "1.0.143", features = ["derive"] }
 serde_json = "1.0.83"
 keccak-hash = "0.8.0"
+sha2 = "0.10"
+itertools = "0.10.0"
 
 [profile.release]
 opt-level = 3
