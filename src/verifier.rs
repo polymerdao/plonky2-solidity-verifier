@@ -509,7 +509,7 @@ mod tests {
         },
     };
 
-    use crate::config::{KeccakGoldilocksConfig2, Sha256GoldilocksConfig};
+    use crate::config::KeccakGoldilocksConfig2;
     use crate::verifier::{
         generate_proof_base64, generate_solidity_verifier, generate_verifier_config,
         recursive_proof,
@@ -605,11 +605,10 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_verifier_with_public_inputs() -> Result<()> {
         const D: usize = 2;
-        type SC = Sha256GoldilocksConfig;
-        type F = <SC as GenericConfig<D>>::F;
+        type KC2 = KeccakGoldilocksConfig2;
+        type F = <KC2 as GenericConfig<D>>::F;
         let standard_config = CircuitConfig::standard_recursion_config();
         // A high-rate recursive proof, designed to be verifiable with fewer routed wires.
         let high_rate_config = CircuitConfig {
@@ -634,7 +633,7 @@ mod tests {
             ..high_rate_config
         };
 
-        let (proof, vd, cd) = dummy_proof::<F, SC, D>(&final_config, 4_000, 4)?;
+        let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 4)?;
 
         let conf = generate_verifier_config(&proof)?;
         let contract = generate_solidity_verifier(&conf, &cd, &vd)?;

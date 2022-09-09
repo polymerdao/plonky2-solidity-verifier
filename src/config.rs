@@ -76,6 +76,10 @@ impl<F: RichField, const N: usize> Hasher<F> for Sha256Hash<N> {
         BytesHash(arr)
     }
 
+    fn hash_public_inputs(input: &[F]) -> Self::Hash {
+        Sha256Hash::hash_no_pad(input)
+    }
+
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
         let mut v = vec![0; N * 2];
         v[0..N].copy_from_slice(&left.0);
@@ -101,6 +105,10 @@ impl<F: RichField> Hasher<F> for AlgebraicSha256Hash {
         }
         let bytes_hash = Sha256Hash::<32>::hash_no_pad(input);
         HashOut::from_bytes(&bytes_hash.0)
+    }
+
+    fn hash_public_inputs(input: &[F]) -> Self::Hash {
+        AlgebraicSha256Hash::hash_no_pad(input)
     }
 
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
@@ -181,6 +189,10 @@ impl<F: RichField> Hasher<F> for AlgebraicKeccakHash {
         HashOut::from_bytes(&bytes_hash.0)
     }
 
+    fn hash_public_inputs(input: &[F]) -> Self::Hash {
+        AlgebraicSha256Hash::hash_public_inputs(input)
+    }
+
     fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
         let input = [left.elements, right.elements].concat();
         AlgebraicKeccakHash::hash_no_pad(&input)
@@ -207,15 +219,7 @@ impl<F: RichField> AlgebraicHasher<F> for AlgebraicKeccakHash {
     where
         F: RichField + Extendable<D>,
     {
-        if inputs.is_empty() {
-            return HashOutTarget::from_vec(Vec::from([
-                builder.zero(),
-                builder.zero(),
-                builder.zero(),
-                builder.zero(),
-            ]));
-        }
-        todo!("implement it")
+        AlgebraicSha256Hash::public_inputs_hash(inputs, builder)
     }
 }
 

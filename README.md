@@ -2,6 +2,7 @@
 
 Updates
 -----
+- **9/9/2022** Added public inputs support. Temporarily use sha256 as the public inputs hash function (slightly more gas than keccak256) due to missing keccak256 plonky2 circuits. Current gas cost of verifying a 60kb proof is around .
 - **9/2/2022** Implemented verify_fri_proof(). This project is close to the first milestone and the current gas cost of verifying a 50kb proof is around 4m.
 
 Milestones
@@ -31,7 +32,7 @@ npm install --save-dev hardhat
 ```
 
 ```shell
-./test.sh
+./test_dummy_proof_without_public_inputs.sh
 
 Generating solidity verifier files ...
 
