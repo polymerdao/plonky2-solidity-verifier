@@ -601,6 +601,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_verifier_with_public_inputs() -> Result<()> {
         const D: usize = 2;
         type SC = Sha256GoldilocksConfig;

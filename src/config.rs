@@ -128,23 +128,38 @@ impl<F: RichField> AlgebraicHasher<F> for AlgebraicSha256Hash {
     where
         F: RichField + Extendable<D>,
     {
-        let msg_len_in_bits = (inputs.len() * 32) as u64;
+        let msg_len_in_bits = (inputs.len() * 64) as u64;
+        if msg_len_in_bits == 0u64 {
+            return HashOutTarget::from_vec(Vec::from([
+                builder.zero(),
+                builder.zero(),
+                builder.zero(),
+                builder.zero(),
+            ]));
+        }
         let sha256_targets = plonky2_sha256::circuit::make_circuits(builder, msg_len_in_bits);
-
         for i in 0..inputs.len() {
-            let bit_targets = builder.split_le_base::<2>(inputs[i], 32);
-            for j in 0..32 {
-                builder.connect(sha256_targets.message[i * 32 + j].target, bit_targets[j]);
+            let bit_targets = builder.split_le_base::<2>(inputs[i], 64);
+            for j in 0..8 {
+                for k in 0..8 {
+                    builder.connect(
+                        sha256_targets.message[i * 64 + j * 8 + k].target,
+                        bit_targets[j * 8 + 7 - k],
+                    );
+                }
             }
         }
 
         let mut out_targets = Vec::new();
-
         for i in 0..4 {
-            out_targets
-                .push(builder.le_sum(sha256_targets.digest[i * 32..i * 32 + 32].iter().rev()));
+            let mut bits = Vec::new();
+            for j in 0..8 {
+                for k in 0..8 {
+                    bits.push(sha256_targets.digest[i * 64 + j * 8 + 7 - k]);
+                }
+            }
+            out_targets.push(builder.le_sum(bits.iter()));
         }
-
         HashOutTarget::from_vec(out_targets)
     }
 }
@@ -186,12 +201,20 @@ impl<F: RichField> AlgebraicHasher<F> for AlgebraicKeccakHash {
     }
 
     fn public_inputs_hash<const D: usize>(
-        _: Vec<Target>,
-        _: &mut CircuitBuilder<F, D>,
+        inputs: Vec<Target>,
+        builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget
     where
         F: RichField + Extendable<D>,
     {
+        if inputs.is_empty() {
+            return HashOutTarget::from_vec(Vec::from([
+                builder.zero(),
+                builder.zero(),
+                builder.zero(),
+                builder.zero(),
+            ]));
+        }
         todo!("implement it")
     }
 }
@@ -225,10 +248,13 @@ mod tests {
     use plonky2::iop::witness::{PartialWitness, Witness};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, Hasher, PoseidonGoldilocksConfig};
+    use plonky2::plonk::config::{
+        AlgebraicHasher, GenericConfig, GenericHashOut, Hasher, PoseidonGoldilocksConfig,
+    };
+    use plonky2::util::serialization::Buffer;
     use plonky2_sha256::circuit::{array_to_bits, make_circuits};
 
-    use crate::config::{sha256, AlgebraicKeccakHash};
+    use crate::config::{AlgebraicKeccakHash, AlgebraicSha256Hash};
 
     #[test]
     fn test_algebraic_keccak() -> Result<()> {
@@ -252,20 +278,25 @@ mod tests {
     }
 
     #[test]
-    fn test_sha256() -> Result<()> {
+    fn test_sha256_hash() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        const MSG_SIZE: usize = 128;
-        let mut msg = vec![0; MSG_SIZE as usize];
-        for i in 0..MSG_SIZE - 1 {
-            msg[i] = i as u8;
-        }
+        let f = [
+            F::from_canonical_u64(8917524657281059100u64),
+            F::from_canonical_u64(13029010200779371910u64),
+            F::from_canonical_u64(16138660518493481604u64),
+            F::from_canonical_u64(17277322750214136960u64),
+            F::from_canonical_u64(1441151880423231822u64),
+        ];
+        let h = AlgebraicSha256Hash::hash_no_pad(&f);
 
-        let hash = sha256(msg.clone());
-        let msg_bits = array_to_bits(msg.as_slice());
+        let mut msg = Buffer::new(Vec::new());
+        msg.write_field_vec(&f).unwrap();
+
         let len = msg.len() * 8;
+        let msg_bits = array_to_bits(&*msg.bytes());
 
         let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
         let targets = make_circuits(&mut builder, len as u64);
@@ -275,7 +306,7 @@ mod tests {
             pw.set_bool_target(targets.message[i], msg_bits[i]);
         }
 
-        let expected_res = array_to_bits(hash.as_ref());
+        let expected_res = array_to_bits(&*h.to_bytes());
         for i in 0..expected_res.len() {
             if expected_res[i] {
                 builder.assert_one(targets.digest[i].target);
@@ -284,6 +315,40 @@ mod tests {
             }
         }
 
+        let data = builder.build::<C>();
+        let proof = data.prove(pw).unwrap();
+        data.verify(proof)
+    }
+
+    #[test]
+    fn test_public_inputs_hash_sha256() -> Result<()> {
+        const D: usize = 2;
+        type C = PoseidonGoldilocksConfig;
+        type F = <C as GenericConfig<D>>::F;
+
+        let f = [
+            F::from_canonical_u64(8917524657281059100u64),
+            F::from_canonical_u64(13029010200779371910u64),
+            F::from_canonical_u64(16138660518493481604u64),
+            F::from_canonical_u64(17277322750214136960u64),
+            F::from_canonical_u64(1441151880423231822u64),
+        ];
+        let h = AlgebraicSha256Hash::hash_no_pad(&f);
+
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
+        let f_targets = builder.constants(f.as_ref());
+        let out = AlgebraicSha256Hash::public_inputs_hash(f_targets, &mut builder);
+
+        let h0 = builder.constant(h.elements[0]);
+        let h1 = builder.constant(h.elements[1]);
+        let h2 = builder.constant(h.elements[2]);
+        let h3 = builder.constant(h.elements[3]);
+        builder.connect(out.elements[0], h0);
+        builder.connect(out.elements[1], h1);
+        builder.connect(out.elements[2], h2);
+        builder.connect(out.elements[3], h3);
+
+        let pw = PartialWitness::new();
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)

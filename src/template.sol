@@ -8,6 +8,7 @@ import "./Plonk.sol";
 import "./GoldilocksField.sol";
 import "./GoldilocksExt.sol";
 
+//TODO: uint64 to bytes8 conversion need to take into account the case n > field_order.
 contract Plonky2Verifier {
     using ChallengerLib for ChallengerLib.Challenger;
     using GoldilocksFieldLib for uint64;
