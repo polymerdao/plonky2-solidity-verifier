@@ -282,6 +282,23 @@ pub fn generate_solidity_verifier<
     let mut contract = std::fs::read_to_string("./src/template.sol")
         .expect("Something went wrong reading the file");
 
+    let mut proof_public_inputs_str;
+    if conf.num_public_inputs == 0 {
+        proof_public_inputs_str = "0".to_owned();
+    } else {
+        proof_public_inputs_str = "sha256(abi.encodePacked(".to_owned();
+        for i in 0..conf.num_public_inputs {
+            proof_public_inputs_str +=
+                &*("proof.public_inputs[".to_owned() + &*i.to_string() + "]");
+            if i == conf.num_public_inputs - 1 {
+                proof_public_inputs_str += &*("))");
+            } else {
+                proof_public_inputs_str += &*(", ");
+            }
+        }
+    }
+    contract = contract.replace("$HASH_PROOF_PUBLIC_INPUTS", &*proof_public_inputs_str);
+
     let sigma_cap_count = 1 << common.config.fri_config.cap_height;
     contract = contract.replace("$SIGMA_CAP_COUNT", &*sigma_cap_count.to_string());
 

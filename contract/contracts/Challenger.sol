@@ -60,7 +60,7 @@ library ChallengerLib {
 
         for (uint i = 0; i < SPONGE_WIDTH * 8; i = i + 8) {
             bytes8 b = toBytes8(tmp, i);
-            // check bytes in the field order
+            // check bytes in the field order (little endian)
             if ((b & 0x00000000FFFFFFFF) != 0x00000000FFFFFFFF) {
                 res[pos++] = b;
             }

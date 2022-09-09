@@ -156,11 +156,22 @@ contract Plonky2Verifier {
         res = reverse(uint64(bytes8(h)));
     }
 
+    function hash_public_inputs(Proof calldata proof) internal pure returns (bytes8[4] memory res) {
+        if (proof.public_inputs.length == 0) return res;
+        bytes32 h = $HASH_PROOF_PUBLIC_INPUTS;
+        res[0] = bytes8(h);
+        res[1] = bytes8(h << 64);
+        res[2] = bytes8(h << 128);
+        res[3] = bytes8(h << 192);
+    }
+
     function get_challenges(Proof calldata proof, ProofChallenges memory challenges) internal pure {
         ChallengerLib.Challenger memory challenger;
-        bytes25 input_hash = 0;
         challenger.observe_hash(CIRCUIT_DIGEST);
-        challenger.observe_hash(input_hash);
+        bytes8[4] memory input_hash = hash_public_inputs(proof);
+        for (uint32 i = 0; i < 4; i++) {
+            challenger.observe_element(input_hash[i]);
+        }
         for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
             challenger.observe_hash(proof.wires_cap[i]);
         }
