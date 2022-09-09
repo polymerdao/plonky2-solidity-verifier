@@ -165,6 +165,10 @@ describe("Verifier", function () {
 
             let fri_pow_witness = buf.subarray(pos, pos + conf.field_size)
             pos += conf.field_size;
+
+            let public_inputs_size = conf.field_size * conf.num_public_inputs;
+            let public_inputs = deserialize_vec(buf.subarray(pos, pos + public_inputs_size), conf.field_size);
+            pos += public_inputs_size;
             console.assert(pos == buf.length);
 
             let input: Plonky2Verifier.ProofStruct = {
@@ -193,6 +197,7 @@ describe("Verifier", function () {
                 fri_query_step1_p,
                 fri_final_poly_ext_v,
                 fri_pow_witness,
+                public_inputs,
             };
             expect(await verifier.verify(input)).to.equal(true);
         });

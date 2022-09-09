@@ -52,6 +52,7 @@ contract Plonky2Verifier {
     uint32 constant NUM_GATE_CONSTRAINTS = $NUM_GATE_CONSTRAINTS;
     uint32 constant QUOTIENT_DEGREE_FACTOR = $QUOTIENT_DEGREE_FACTOR;
     uint32 constant NUM_REDUCTION_ARITY_BITS = $NUM_REDUCTION_ARITY_BITS;
+    uint32 constant NUM_PUBLIC_INPUTS = $NUM_PUBLIC_INPUTS;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -82,6 +83,7 @@ contract Plonky2Verifier {
 
         bytes16[] fri_final_poly_ext_v;
         bytes8 fri_pow_witness;
+        bytes8[] public_inputs;
     }
 
     struct ProofChallenges {

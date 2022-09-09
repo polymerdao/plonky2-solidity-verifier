@@ -135,6 +135,7 @@ pub struct VerifierConfig {
     // .final poly
     num_fri_final_poly_ext_v: usize,
     // public inputs
+    num_public_inputs: usize,
 }
 
 // TODO: The input should be CommonCircuitData
@@ -192,6 +193,8 @@ pub fn generate_verifier_config<
         num_fri_query_step1_v: query_round_steps[1].evals.len(),
         num_fri_query_step1_p: query_round_steps[1].merkle_proof.siblings.len(),
         num_fri_final_poly_ext_v: proof.opening_proof.final_poly.coeffs.len(),
+
+        num_public_inputs: pwpi.public_inputs.len(),
     };
     Ok(conf)
 }
@@ -204,8 +207,6 @@ pub fn generate_proof_base64<
     pwpi: &ProofWithPublicInputs<F, C, D>,
     conf: &VerifierConfig,
 ) -> anyhow::Result<String> {
-    assert_eq!(pwpi.public_inputs.len(), 0);
-
     // total size: 75
     let mut proof_size: usize =
         (conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap + conf.num_quotient_polys_cap)
@@ -250,6 +251,8 @@ pub fn generate_proof_base64<
 
     // 51047
     proof_size += conf.field_size;
+
+    proof_size += conf.num_public_inputs * conf.field_size;
 
     let proof_bytes = pwpi.to_bytes()?;
     assert_eq!(proof_bytes.len(), proof_size);
@@ -417,6 +420,7 @@ pub fn generate_solidity_verifier<
         "$NUM_FRI_FINAL_POLY_EXT_V",
         &*conf.num_fri_final_poly_ext_v.to_string(),
     );
+    contract = contract.replace("$NUM_PUBLIC_INPUTS", &*conf.num_public_inputs.to_string());
     contract = contract.replace(
         "$NUM_CHALLENGES",
         &*common.config.num_challenges.to_string(),
