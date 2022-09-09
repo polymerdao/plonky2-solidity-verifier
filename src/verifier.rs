@@ -619,7 +619,7 @@ mod tests {
         };
         // A final proof, optimized for size.
         let final_config = CircuitConfig {
-            num_routed_wires: 37,
+            num_routed_wires: 65,
             fri_config: FriConfig {
                 rate_bits: 8,
                 cap_height: 0,
@@ -630,7 +630,7 @@ mod tests {
             ..high_rate_config
         };
 
-        let (proof, vd, cd) = dummy_proof::<F, SC, D>(&final_config, 4_000, 2)?;
+        let (proof, vd, cd) = dummy_proof::<F, SC, D>(&final_config, 4_000, 4)?;
 
         let conf = generate_verifier_config(&proof)?;
         let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
