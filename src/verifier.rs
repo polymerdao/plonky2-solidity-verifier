@@ -497,9 +497,25 @@ pub fn generate_solidity_verifier<
     contract = contract.replace("$G_ARITY_BITS_2", &g.to_string());
     let g = F::primitive_root_of_unity(3);
     contract = contract.replace("$G_ARITY_BITS_3", &g.to_string());
+
+    let evaluate_gate_constraints_str = "".to_owned();
+    for (_i, gate) in common.gates.iter().enumerate() {
+        if gate.0.id().eq("NoopGate") {
+            // do nothing
+        } else if gate.0.id()[0..12].eq("ConstantGate") {
+            // do nothing
+        } else if gate.0.id().eq("PublicInputGate") {
+            // do nothing
+        } else if gate.0.id()[0..11].eq("BaseSumGate") {
+        } else if gate.0.id()[0..14].eq("ArithmeticGate") {
+        } else if gate.0.id()[0..17].eq("U32ArithmeticGate") {
+        } else {
+            todo!("{}", "gate not implemented: ".to_owned() + &gate.0.id())
+        }
+    }
     contract = contract.replace(
-        "$NUM_CD_GATES",
-        &*common.gates.len().to_string(),
+        "$EVALUATE_GATE_CONSTRAINTS;",
+        &*evaluate_gate_constraints_str,
     );
 
     Ok(contract)

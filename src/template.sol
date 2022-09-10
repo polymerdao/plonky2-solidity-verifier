@@ -241,8 +241,7 @@ contract Plonky2Verifier {
     }
 
     function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
-        for (uint32 i = 0; i < $NUM_CD_GATES; i++) {
-        }
+        $EVALUATE_GATE_CONSTRAINTS;
     }
 
     function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
