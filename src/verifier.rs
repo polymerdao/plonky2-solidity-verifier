@@ -497,6 +497,10 @@ pub fn generate_solidity_verifier<
     contract = contract.replace("$G_ARITY_BITS_2", &g.to_string());
     let g = F::primitive_root_of_unity(3);
     contract = contract.replace("$G_ARITY_BITS_3", &g.to_string());
+    contract = contract.replace(
+        "$NUM_CD_GATES",
+        &*common.gates.len().to_string(),
+    );
 
     Ok(contract)
 }

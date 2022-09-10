@@ -95,6 +95,7 @@ contract Plonky2Verifier {
         uint64[2][NUM_FRI_COMMIT_ROUND] fri_betas;
         uint64 fri_pow_response;
         uint32[NUM_FRI_QUERY_ROUND] fri_query_indices;
+        bytes8[4] public_input_hash;
     }
 
     function get_sigma_cap() internal pure returns (bytes25[] memory) {
@@ -103,11 +104,11 @@ contract Plonky2Verifier {
         return sc;
     }
 
-    function get_k_is() internal pure returns (uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is) {
+    function get_k_is(uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is) internal pure {
         $SET_K_IS;
     }
 
-    function get_reduction_arity_bits() internal pure returns (uint32[NUM_REDUCTION_ARITY_BITS] memory bits) {
+    function get_reduction_arity_bits(uint32[NUM_REDUCTION_ARITY_BITS] memory bits) internal pure {
         $SET_REDUCTION_ARITY_BITS;
     }
 
@@ -168,9 +169,9 @@ contract Plonky2Verifier {
     function get_challenges(Proof calldata proof, ProofChallenges memory challenges) internal pure {
         ChallengerLib.Challenger memory challenger;
         challenger.observe_hash(CIRCUIT_DIGEST);
-        bytes8[4] memory input_hash = hash_public_inputs(proof);
+        challenges.public_input_hash = hash_public_inputs(proof);
         for (uint32 i = 0; i < 4; i++) {
-            challenger.observe_element(input_hash[i]);
+            challenger.observe_element(challenges.public_input_hash[i]);
         }
         for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
             challenger.observe_hash(proof.wires_cap[i]);
@@ -239,8 +240,13 @@ contract Plonky2Verifier {
         uint64[2][NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES] vanishing_partial_products_terms;
     }
 
-    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (VanishingTerms memory vm) {
-        // TODO: implement constraint_terms = evaluate_gate_constraints()
+    function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
+        for (uint32 i = 0; i < $NUM_CD_GATES; i++) {
+        }
+    }
+
+    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
+        evaluate_gate_constraints(proof, challenges, vm);
 
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
         for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
@@ -250,7 +256,8 @@ contract Plonky2Verifier {
             uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory numerator_values;
             uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory denominator_values;
 
-            uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is = get_k_is();
+            uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is;
+            get_k_is(k_is);
             for (uint32 j = 0; j < NUM_OPENINGS_PLONK_SIGMAS; j++) {
                 uint64[2] memory wire_value = le_bytes16_to_ext(proof.openings_wires[j]);
                 uint64[2] memory s_id = challenges.plonk_zeta.scalar_mul(k_is[j]);
@@ -281,8 +288,6 @@ contract Plonky2Verifier {
                 vm.vanishing_partial_products_terms[NUM_PARTIAL_PRODUCTS_TERMS * i + j] = accs[j].mul(num_prod).sub(accs[j + 1].mul(den_prod));
             }
         }
-
-        return vm;
     }
 
     function reduce_with_powers(uint64[2][QUOTIENT_DEGREE_FACTOR] memory terms, uint64[2] memory alpha) internal pure returns (uint64[2] memory sum) {
@@ -545,7 +550,8 @@ contract Plonky2Verifier {
 
                 old_eval = sum.mul(subgroup_x);
             }
-            uint32[NUM_REDUCTION_ARITY_BITS] memory arity_bits = get_reduction_arity_bits();
+            uint32[NUM_REDUCTION_ARITY_BITS] memory arity_bits;
+            get_reduction_arity_bits(arity_bits);
             for (uint32 i = 0; i < NUM_REDUCTION_ARITY_BITS; i++) {
                 uint32 arity = uint32(1 << arity_bits[i]);
                 uint32 coset_index = challenges.fri_query_indices[round] >> arity_bits[i];
@@ -599,7 +605,8 @@ contract Plonky2Verifier {
 
         require(leading_zeros(challenges.fri_pow_response) >= $MIN_FRI_POW_RESPONSE);
 
-        VanishingTerms memory vm = eval_vanishing_poly(proof_with_public_inputs, challenges);
+        VanishingTerms memory vm;
+        eval_vanishing_poly(proof_with_public_inputs, challenges, vm);
         uint64[2][NUM_CHALLENGES] memory zeta;
         for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
             uint64[2] memory alpha;
