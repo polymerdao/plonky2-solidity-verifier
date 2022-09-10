@@ -498,8 +498,39 @@ pub fn generate_solidity_verifier<
     let g = F::primitive_root_of_unity(3);
     contract = contract.replace("$G_ARITY_BITS_3", &g.to_string());
 
-    let evaluate_gate_constraints_str = "".to_owned();
-    for (_i, gate) in common.gates.iter().enumerate() {
+    let mut evaluate_gate_constraints_str = "".to_owned();
+    for (row, gate) in common.gates.iter().enumerate() {
+        let selector_index = common.selectors_info.selector_indices[row];
+        let group_range = common.selectors_info.groups[selector_index].clone();
+        let num_selectors = common.selectors_info.num_selectors();
+        let mut c = 0;
+
+        evaluate_gate_constraints_str = evaluate_gate_constraints_str + "        {\n";
+        let mut filter_str = "            uint64[2] memory filter = ".to_owned();
+        let filter_chain = group_range
+            .filter(|&i| i != row)
+            .chain((num_selectors > 1).then_some(u32::MAX as usize));
+        for i in filter_chain {
+            filter_str += &*("field_ext_from(".to_owned()
+                + &i.to_string()
+                + ", 0).sub("
+                + "le_bytes16_to_ext(proof.openings_constants["
+                + &*selector_index.to_string()
+                + "])).mul(");
+            c = c + 1;
+        }
+        filter_str = filter_str[0..filter_str.len() - 5].parse()?;
+        for _ in 0..c - 1 {
+            filter_str = filter_str + ")";
+        }
+        filter_str = filter_str + ";\n";
+        evaluate_gate_constraints_str = evaluate_gate_constraints_str + &*filter_str;
+
+        // vars:
+        //   proof.openings_constants
+        //   proof.openings_wires
+        //   challenges.public_input_hash
+
         if gate.0.id().eq("NoopGate") {
             // do nothing
         } else if gate.0.id()[0..12].eq("ConstantGate") {
@@ -512,10 +543,11 @@ pub fn generate_solidity_verifier<
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate.0.id())
         }
+        evaluate_gate_constraints_str = evaluate_gate_constraints_str + "        }\n";
     }
     contract = contract.replace(
-        "$EVALUATE_GATE_CONSTRAINTS;",
-        &*evaluate_gate_constraints_str,
+        "        $EVALUATE_GATE_CONSTRAINTS;",
+        &evaluate_gate_constraints_str[0..evaluate_gate_constraints_str.len() - 1],
     );
 
     Ok(contract)

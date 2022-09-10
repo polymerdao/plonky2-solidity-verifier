@@ -240,6 +240,11 @@ contract Plonky2Verifier {
         uint64[2][NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES] vanishing_partial_products_terms;
     }
 
+    function field_ext_from(uint64 x, uint64 y) internal pure returns (uint64[2] memory res) {
+        res[0] = x;
+        res[1] = y;
+    }
+
     function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
         $EVALUATE_GATE_CONSTRAINTS;
     }
