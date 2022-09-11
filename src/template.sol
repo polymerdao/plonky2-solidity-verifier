@@ -113,10 +113,11 @@ contract Plonky2Verifier {
     }
 
     function get_g_by_arity_bits(uint32 arity_bits) internal pure returns (uint64) {
-        uint64[3] memory g_arity_bits;
+        uint64[4] memory g_arity_bits;
         g_arity_bits[0] = $G_ARITY_BITS_1;
         g_arity_bits[1] = $G_ARITY_BITS_2;
         g_arity_bits[2] = $G_ARITY_BITS_3;
+        g_arity_bits[3] = $G_ARITY_BITS_4;
         return g_arity_bits[arity_bits - 1];
     }
 
@@ -245,11 +246,11 @@ contract Plonky2Verifier {
         res[1] = y;
     }
 
-    function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
+    function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
         $EVALUATE_GATE_CONSTRAINTS;
     }
 
-    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
+    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
         evaluate_gate_constraints(proof, challenges, vm);
 
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
@@ -439,7 +440,7 @@ contract Plonky2Verifier {
     }
 
     // TODO: optimization barycentric_weights calculations
-    function cal_barycentric_weights(uint64[2][8] memory points, uint32 arity) internal pure returns (uint64[2][8] memory barycentric_weights) {
+    function cal_barycentric_weights(uint64[2][16] memory barycentric_weights, uint64[2][16] memory points, uint32 arity) internal pure {
         barycentric_weights[0][0] = points[0][0].sub(points[1][0]);
         for (uint32 j = 2; j < arity; j++) {
             barycentric_weights[0][0] = barycentric_weights[0][0].mul(points[0][0].sub(points[j][0]));
@@ -455,10 +456,9 @@ contract Plonky2Verifier {
         for (uint32 j = 0; j < arity; j++) {
             barycentric_weights[j][0] = barycentric_weights[j][0].inverse();
         }
-        return barycentric_weights;
     }
 
-    function get_points(uint32 arity_bits, uint32 x_index_within_coset, uint64 subgroup_x) internal pure returns (uint64[2][8] memory points) {
+    function get_points(uint64[2][16] memory points, uint32 arity_bits, uint32 x_index_within_coset, uint64 subgroup_x) internal pure {
         uint32 arity = uint32(1 << arity_bits);
         uint64 g_arity = get_g_by_arity_bits(arity_bits);
         uint32 rev_x_index_within_coset = reverse_bits(x_index_within_coset, arity_bits);
@@ -469,8 +469,9 @@ contract Plonky2Verifier {
     }
 
     function compute_evaluation(Proof calldata proof, uint64[2] memory fri_beta, uint32 round, uint32 reduction,
-        uint32 arity_bits, uint64[2][8] memory points) internal pure returns (uint64[2] memory){
-        uint64[2][8] memory barycentric_weights = cal_barycentric_weights(points, uint32(1 << arity_bits));
+        uint32 arity_bits, uint64[2][16] memory points) internal pure returns (uint64[2] memory){
+        uint64[2][16] memory barycentric_weights;
+        cal_barycentric_weights(barycentric_weights, points, uint32(1 << arity_bits));
 
         // Interpolate
         // Check if Lagrange formula would divide by zero?
@@ -567,8 +568,11 @@ contract Plonky2Verifier {
                     eval = le_bytes16_to_ext(proof.fri_query_step1_v[round][x_index_within_coset]);
                 }
                 if (!eval.equal(old_eval)) return false;
-                uint64[2][8] memory points = get_points(arity_bits[i], x_index_within_coset, subgroup_x[0]);
-                old_eval = compute_evaluation(proof, challenges.fri_betas[i], round, i, arity_bits[i], points);
+                {
+                    uint64[2][16] memory points;
+                    get_points(points, arity_bits[i], x_index_within_coset, subgroup_x[0]);
+                    old_eval = compute_evaluation(proof, challenges.fri_betas[i], round, i, arity_bits[i], points);
+                }
 
                 if (i == 0 && !verify_merkle_proof_to_cap_step0(proof, coset_index, round)) {
                     return false;
@@ -601,7 +605,7 @@ contract Plonky2Verifier {
         return res;
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
+    function verify(Proof calldata proof_with_public_inputs) public pure returns (bool) {
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
         ProofChallenges memory challenges;
@@ -609,30 +613,34 @@ contract Plonky2Verifier {
 
         require(leading_zeros(challenges.fri_pow_response) >= $MIN_FRI_POW_RESPONSE);
 
-        VanishingTerms memory vm;
-        eval_vanishing_poly(proof_with_public_inputs, challenges, vm);
-        uint64[2][NUM_CHALLENGES] memory zeta;
-        for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
-            uint64[2] memory alpha;
-            alpha[0] = challenges.plonk_alphas[i];
-            for (uint32 j = NUM_GATE_CONSTRAINTS; j > 0; j --) {
-                zeta[i] = vm.constraint_terms[j - 1].add(zeta[i].mul(alpha));
+        {
+            uint64[2][NUM_CHALLENGES] memory zeta;
+            {
+                VanishingTerms memory vm;
+                eval_vanishing_poly(proof_with_public_inputs, challenges, vm);
+                for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
+                    uint64[2] memory alpha;
+                    alpha[0] = challenges.plonk_alphas[i];
+                    for (uint32 j = NUM_GATE_CONSTRAINTS; j > 0; j --) {
+                        zeta[i] = vm.constraint_terms[j - 1].add(zeta[i].mul(alpha));
+                    }
+                    for (uint32 j = NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES; j > 0; j --) {
+                        zeta[i] = vm.vanishing_partial_products_terms[j - 1].add(zeta[i].mul(alpha));
+                    }
+                    for (uint32 j = NUM_CHALLENGES; j > 0; j --) {
+                        zeta[i] = vm.vanishing_z_1_terms[j - 1].add(zeta[i].mul(alpha));
+                    }
+                }
             }
-            for (uint32 j = NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES; j > 0; j --) {
-                zeta[i] = vm.vanishing_partial_products_terms[j - 1].add(zeta[i].mul(alpha));
+            uint64[2] memory zeta_pow_deg = challenges.plonk_zeta.exp_power_of_2(DEGREE_BITS);
+            uint64[2] memory z_h_zeta = zeta_pow_deg.sub(GoldilocksExtLib.one());
+            for (uint i = 0; i < NUM_CHALLENGES; i++) {
+                uint64[2][QUOTIENT_DEGREE_FACTOR] memory terms;
+                for (uint j = 0; j < QUOTIENT_DEGREE_FACTOR; j++) {
+                    terms[j] = le_bytes16_to_ext(proof_with_public_inputs.openings_quotient_polys[i * QUOTIENT_DEGREE_FACTOR + j]);
+                }
+                if (!zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg)))) return false;
             }
-            for (uint32 j = NUM_CHALLENGES; j > 0; j --) {
-                zeta[i] = vm.vanishing_z_1_terms[j - 1].add(zeta[i].mul(alpha));
-            }
-        }
-        uint64[2] memory zeta_pow_deg = challenges.plonk_zeta.exp_power_of_2(DEGREE_BITS);
-        uint64[2] memory z_h_zeta = zeta_pow_deg.sub(GoldilocksExtLib.one());
-        for (uint i = 0; i < NUM_CHALLENGES; i++) {
-            uint64[2][QUOTIENT_DEGREE_FACTOR] memory terms;
-            for (uint j = 0; j < QUOTIENT_DEGREE_FACTOR; j++) {
-                terms[j] = le_bytes16_to_ext(proof_with_public_inputs.openings_quotient_polys[i * QUOTIENT_DEGREE_FACTOR + j]);
-            }
-            if (!zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg)))) return false;
         }
 
         return verify_fri_proof(proof_with_public_inputs, challenges);
