@@ -534,7 +534,7 @@ pub fn generate_solidity_verifier<
         //   proof.openings_wires
         //   challenges.public_input_hash
         // local_constants = local_constants[num_selectors..];
-        let mut eval_str = "".to_owned();
+        let mut eval_str = "            // ".to_owned() + &*gate.0.id() + "\n";
         if gate.0.id()[0..12].eq("ConstantGate") {
             eval_str += &*format!(
                 "            for (uint32 i = 0; i < {}; i++) {{\n",
@@ -552,6 +552,17 @@ pub fn generate_solidity_verifier<
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate.0.id())
         }
+        eval_str += stringify!(
+            console.log(vm.constraint_terms[0][0]);
+            console.log(vm.constraint_terms[0][1]);
+            console.log(vm.constraint_terms[1][0]);
+            console.log(vm.constraint_terms[1][1]);
+            console.log(vm.constraint_terms[2][0]);
+            console.log(vm.constraint_terms[2][1]);
+            console.log(vm.constraint_terms[3][0]);
+            console.log(vm.constraint_terms[3][1]);
+            console.log("");
+            );
         evaluate_gate_constraints_str += &*eval_str;
         evaluate_gate_constraints_str += "        }\n";
     }
