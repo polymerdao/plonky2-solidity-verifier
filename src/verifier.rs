@@ -620,6 +620,22 @@ pub fn generate_solidity_verifier<
             eval_str += &*format!("                vm.constraint_terms[index] = vm.constraint_terms[index].add(combined_high_limbs.sub(le_bytes16_to_ext(proof.openings_wires[6 * i + 4])).mul(filter));\n");
             eval_str += &*format!("                index++;\n");
             eval_str += &*format!("            }}\n");
+        } else if gate_name[0..26].eq("LowDegreeInterpolationGate") {
+
+        } else if gate_name[0..21].eq("ReducingExtensionGate") {
+
+        } else if gate_name[0..12].eq("ReducingGate") {
+
+        } else if gate_name[0..23].eq("ArithmeticExtensionGate") {
+
+        } else if gate_name[0..16].eq("MulExtensionGate") {
+
+        } else if gate_name[0..16].eq("RandomAccessGate") {
+
+        } else if gate_name[0..18].eq("ExponentiationGate") {
+
+        } else if gate_name[0..12].eq("PoseidonGate") {
+
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         }
@@ -819,7 +835,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_recursive_verifier_without_public_inputs() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;

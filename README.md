@@ -3,12 +3,17 @@
 Updates
 -----
 
-- **9/11/2022** Added public inputs support. Temporarily use sha256 as the public inputs hash function (slightly more gas than keccak256) due to missing keccak256 plonky2 circuits. Current gas cost of verifying a 60kb proof is around 5m.
-- **9/2/2022** Implemented verify_fri_proof(). This project is close to the first milestone and the current gas cost of verifying a 50kb proof is around 4m.
+- **9/11/2022** Added public inputs support. Temporarily use sha256 as the public inputs hash function (slightly more
+  gas than keccak256) due to missing keccak256 plonky2 circuits. Current gas cost of verifying a 60kb proof is around
+  5m.
+- **9/2/2022** Implemented verify_fri_proof(). This project is close to the first milestone and the current gas cost of
+  verifying a 50kb proof is around 4m.
 
 Milestones
 -----
-This project reaches the first milestone that is to verify a dummy plonky2 proof with public inputs using the following settings:
+This project reaches the first milestone that is to verify a dummy plonky2 proof with public inputs using the following
+settings:
+
 - High rate config
 - GoldilocksField
 - QuadraticExtension
@@ -19,12 +24,26 @@ The next milestone is to verify any recursive proof with the above settings.
 
 Things to do for this milestone:
 
-+ [ ] implement all required evaluate_gate_constraints()
-+ [ ] gas cost optimization
+Implement all required gate constraints evaluation and gas cost optimization:
+
++ [x] NoopGate
++ [x] ConstantGate
++ [x] PublicInputGate
++ [x] BaseSumGate
++ [ ] LowDegreeInterpolationGate
++ [ ] ReducingExtensionGate
++ [ ] ReducingGate
++ [x] ArithmeticGate
++ [x] U32ArithmeticGate
++ [ ] ArithmeticExtensionGate
++ [ ] MulExtensionGate
++ [ ] ExponentiationGate
++ [ ] RandomAccessGate
++ [ ] PoseidonGate
 
 Optional:
 
-+ [ ] zero knowledge support
++ [ ] Zero knowledge support
 
 Results
 -----
@@ -68,4 +87,3 @@ proof size: 59243
   1 passing (1m)
 
 ```
-
