@@ -535,34 +535,59 @@ pub fn generate_solidity_verifier<
         //   challenges.public_input_hash
         // local_constants = local_constants[num_selectors..];
         let mut eval_str = "            // ".to_owned() + &*gate.0.id() + "\n";
-        if gate.0.id()[0..12].eq("ConstantGate") {
+        let gate_name = gate.0.id();
+        if gate_name[0..12].eq("ConstantGate") {
             eval_str += &*format!(
                 "            for (uint32 i = 0; i < {}; i++) {{\n",
                 gate.0.num_constants()
             );
             eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_constants[i + {}]).sub(le_bytes16_to_ext(proof.openings_wires[i])).mul(filter));\n", num_selectors);
             eval_str += &*format!("            }}\n");
-        } else if gate.0.id().eq("PublicInputGate") {
+        } else if gate_name.eq("PublicInputGate") {
             eval_str += &*format!("            for (uint32 i = 0; i < 4; i++) {{\n");
             eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_wires[i]).sub(le_bytes8_to_ext(challenges.public_input_hash[i])).mul(filter));\n");
             eval_str += &*format!("            }}\n");
-        } else if gate.0.id()[0..11].eq("BaseSumGate") {
-        } else if gate.0.id()[0..14].eq("ArithmeticGate") {
-        } else if gate.0.id()[0..17].eq("U32ArithmeticGate") {
+        } else if gate_name[0..11].eq("BaseSumGate") {
+            let v: Vec<&str> = gate_name.split(' ').collect();
+            let num_limbs = v[3].parse::<usize>().unwrap();
+            let base = v[7].parse::<usize>().unwrap();
+
+            eval_str += &*format!("            uint64[2] memory sum;\n");
+            eval_str += &*format!(
+                "            for (uint32 i = {}; i > 1; i--) {{\n",
+                num_limbs + 1
+            );
+            eval_str += &*format!("                sum = sum.mul(field_ext_from({}, 0)).add(le_bytes16_to_ext(proof.openings_wires[i - 1]));\n", base);
+            eval_str += &*format!("            }}\n");
+
+            eval_str += &*format!("            vm.constraint_terms[0] = vm.constraint_terms[0].add(sum.sub(le_bytes16_to_ext(proof.openings_wires[0])).mul(filter));\n");
+
+            eval_str += &*format!(
+                "            for (uint32 i = 1; i < {}; i++) {{\n",
+                num_limbs + 1
+            );
+            eval_str += &*format!("                uint64[2] memory product = le_bytes16_to_ext(proof.openings_wires[i]);\n");
+            eval_str += &*format!("                for (uint32 j = 1; j < {}; j++) {{\n", base);
+            eval_str += &*format!("                    product = product.mul(le_bytes16_to_ext(proof.openings_wires[i]).sub(field_ext_from(j, 0)));\n");
+            eval_str += &*format!("                }}\n");
+            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(product.mul(filter));\n");
+            eval_str += &*format!("            }}\n");
+        } else if gate_name[0..14].eq("ArithmeticGate") {
+        } else if gate_name[0..17].eq("U32ArithmeticGate") {
         } else {
-            todo!("{}", "gate not implemented: ".to_owned() + &gate.0.id())
+            todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         }
         eval_str += stringify!(
-            console.log(vm.constraint_terms[0][0]);
-            console.log(vm.constraint_terms[0][1]);
-            console.log(vm.constraint_terms[1][0]);
-            console.log(vm.constraint_terms[1][1]);
-            console.log(vm.constraint_terms[2][0]);
-            console.log(vm.constraint_terms[2][1]);
-            console.log(vm.constraint_terms[3][0]);
-            console.log(vm.constraint_terms[3][1]);
-            console.log("");
-            );
+        console.log(vm.constraint_terms[0][0]);
+        console.log(vm.constraint_terms[0][1]);
+        console.log(vm.constraint_terms[1][0]);
+        console.log(vm.constraint_terms[1][1]);
+        console.log(vm.constraint_terms[2][0]);
+        console.log(vm.constraint_terms[2][1]);
+        console.log(vm.constraint_terms[3][0]);
+        console.log(vm.constraint_terms[3][1]);
+        console.log("");
+        );
         evaluate_gate_constraints_str += &*eval_str;
         evaluate_gate_constraints_str += "        }\n";
     }
