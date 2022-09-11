@@ -573,7 +573,18 @@ pub fn generate_solidity_verifier<
             eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(product.mul(filter));\n");
             eval_str += &*format!("            }}\n");
         } else if gate_name[0..14].eq("ArithmeticGate") {
+            let v: Vec<&str> = gate_name.split(' ').collect();
+            let num_ops = v[3].parse::<usize>().unwrap();
+
+            eval_str += &*format!("            for (uint32 i = 0; i < {}; i++) {{\n", num_ops);
+            eval_str += &*format!("                uint64[2] memory constraint;\n");
+            eval_str += &*format!("                constraint = le_bytes16_to_ext(proof.openings_wires[4 * i]).mul(le_bytes16_to_ext(proof.openings_wires[4 * i + 1])).mul(le_bytes16_to_ext(proof.openings_constants[{}])).add(le_bytes16_to_ext(proof.openings_wires[4 * i + 2]).mul(le_bytes16_to_ext(proof.openings_constants[{}])));\n",num_selectors,num_selectors+1);
+            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_wires[4 * i + 3]).sub(constraint).mul(filter));\n");
+            eval_str += &*format!("            }}\n");
         } else if gate_name[0..17].eq("U32ArithmeticGate") {
+            let v: Vec<&str> = gate_name.split(' ').collect();
+            let vv: Vec<&str> = v[3].split(',').collect();
+            let num_ops = vv[0].parse::<usize>().unwrap();
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         }
