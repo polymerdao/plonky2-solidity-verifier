@@ -500,6 +500,9 @@ pub fn generate_solidity_verifier<
 
     let mut evaluate_gate_constraints_str = "".to_owned();
     for (row, gate) in common.gates.iter().enumerate() {
+        if gate.0.id().eq("NoopGate") {
+            continue;
+        }
         let selector_index = common.selectors_info.selector_indices[row];
         let group_range = common.selectors_info.groups[selector_index].clone();
         let num_selectors = common.selectors_info.num_selectors();
@@ -530,20 +533,27 @@ pub fn generate_solidity_verifier<
         //   proof.openings_constants
         //   proof.openings_wires
         //   challenges.public_input_hash
-
-        if gate.0.id().eq("NoopGate") {
-            // do nothing
-        } else if gate.0.id()[0..12].eq("ConstantGate") {
-            // do nothing
+        // local_constants = local_constants[num_selectors..];
+        let mut eval_str = "".to_owned();
+        if gate.0.id()[0..12].eq("ConstantGate") {
+            eval_str += &*format!(
+                "            for (uint32 i = 0; i < {}; i++) {{\n",
+                gate.0.num_constants()
+            );
+            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_constants[i + {}]).sub(le_bytes16_to_ext(proof.openings_wires[i])).mul(filter));\n", num_selectors);
+            eval_str += &*format!("            }}\n");
         } else if gate.0.id().eq("PublicInputGate") {
-            // do nothing
+            eval_str += &*format!("            for (uint32 i = 0; i < 4; i++) {{\n");
+            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_wires[i]).sub(le_bytes8_to_ext(challenges.public_input_hash[i])).mul(filter));\n");
+            eval_str += &*format!("            }}\n");
         } else if gate.0.id()[0..11].eq("BaseSumGate") {
         } else if gate.0.id()[0..14].eq("ArithmeticGate") {
         } else if gate.0.id()[0..17].eq("U32ArithmeticGate") {
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate.0.id())
         }
-        evaluate_gate_constraints_str = evaluate_gate_constraints_str + "        }\n";
+        evaluate_gate_constraints_str += &*eval_str;
+        evaluate_gate_constraints_str += "        }\n";
     }
     contract = contract.replace(
         "        $EVALUATE_GATE_CONSTRAINTS;",
