@@ -639,17 +639,18 @@ pub fn generate_solidity_verifier<
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         }
-        // eval_str += stringify!(
-        // console.log(vm.constraint_terms[0][0]);
-        // console.log(vm.constraint_terms[0][1]);
-        // console.log(vm.constraint_terms[1][0]);
-        // console.log(vm.constraint_terms[1][1]);
-        // console.log(vm.constraint_terms[2][0]);
-        // console.log(vm.constraint_terms[2][1]);
-        // console.log(vm.constraint_terms[3][0]);
-        // console.log(vm.constraint_terms[3][1]);
-        // console.log("");
-        // );
+        eval_str += &*format!("console.log(\"{}\");\n", gate_name);
+        eval_str += stringify!(
+        console.log(vm.constraint_terms[0][0]);
+        console.log(vm.constraint_terms[0][1]);
+        console.log(vm.constraint_terms[1][0]);
+        console.log(vm.constraint_terms[1][1]);
+        console.log(vm.constraint_terms[2][0]);
+        console.log(vm.constraint_terms[2][1]);
+        console.log(vm.constraint_terms[3][0]);
+        console.log(vm.constraint_terms[3][1]);
+        console.log("");
+        );
         evaluate_gate_constraints_str += &*eval_str;
         evaluate_gate_constraints_str += "        }\n";
     }
@@ -854,6 +855,9 @@ mod tests {
             },
             ..standard_config
         };
+
+        let (proof, vd, cd) =
+            recursive_proof::<F, C, C, D>(proof, vd, cd, &high_rate_config, None, true, true)?;
 
         // A final proof, optimized for size.
         let final_config = CircuitConfig {
