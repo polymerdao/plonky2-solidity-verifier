@@ -7,6 +7,7 @@ import "./Challenger.sol";
 import "./Plonk.sol";
 import "./GoldilocksField.sol";
 import "./GoldilocksExt.sol";
+import "./GatesLib.sol";
 
 //TODO: uint64 to bytes8 conversion need to take into account the case n > field_order.
 contract Plonky2Verifier {
@@ -53,6 +54,7 @@ contract Plonky2Verifier {
     uint32 constant QUOTIENT_DEGREE_FACTOR = $QUOTIENT_DEGREE_FACTOR;
     uint32 constant NUM_REDUCTION_ARITY_BITS = $NUM_REDUCTION_ARITY_BITS;
     uint32 constant NUM_PUBLIC_INPUTS = $NUM_PUBLIC_INPUTS;
+    uint32 constant NUM_SELECTORS = $NUM_SELECTORS;
 
     struct Proof {
         bytes25[] wires_cap;
@@ -247,6 +249,15 @@ contract Plonky2Verifier {
     }
 
     function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
+        uint64[2][NUM_OPENINGS_CONSTANTS] memory constants;
+        uint64[2][NUM_OPENINGS_WIRES] memory wires;
+        for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
+            constants[i] = le_bytes16_to_ext(proof.openings_constants[i]);
+        }
+        for (uint32 i = 0; i < NUM_OPENINGS_WIRES; i++) {
+            wires[i] = le_bytes16_to_ext(proof.openings_wires[i]);
+        }
+
         $EVALUATE_GATE_CONSTRAINTS;
     }
 

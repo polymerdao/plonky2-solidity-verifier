@@ -268,7 +268,7 @@ pub fn generate_solidity_verifier<
     conf: &VerifierConfig,
     common: &CommonCircuitData<F, C, D>,
     verifier_only: &VerifierOnlyCircuitData<C, D>,
-) -> anyhow::Result<String> {
+) -> anyhow::Result<(String, String)> {
     assert_eq!(
         25,
         C::Hasher::HASH_SIZE,
@@ -279,7 +279,7 @@ pub fn generate_solidity_verifier<
     println!("Generating solidity verifier files ...");
 
     // Load template contract
-    let mut contract = std::fs::read_to_string("./src/template.sol")
+    let mut contract = std::fs::read_to_string("./src/template_main.sol")
         .expect("Something went wrong reading the file");
 
     let mut proof_public_inputs_str;
@@ -500,6 +500,12 @@ pub fn generate_solidity_verifier<
     let g = F::primitive_root_of_unity(4);
     contract = contract.replace("$G_ARITY_BITS_4", &g.to_string());
 
+    // Load gate template
+    let mut gates_lib = std::fs::read_to_string("./src/template_gates.sol")
+        .expect("Something went wrong reading the file");
+
+    let num_selectors = common.selectors_info.num_selectors();
+    contract = contract.replace("$NUM_SELECTORS", &num_selectors.to_string());
     let mut evaluate_gate_constraints_str = "".to_owned();
     for (row, gate) in common.gates.iter().enumerate() {
         if gate.0.id().eq("NoopGate") {
@@ -507,7 +513,6 @@ pub fn generate_solidity_verifier<
         }
         let selector_index = common.selectors_info.selector_indices[row];
         let group_range = common.selectors_info.groups[selector_index].clone();
-        let num_selectors = common.selectors_info.num_selectors();
         let mut c = 0;
 
         evaluate_gate_constraints_str = evaluate_gate_constraints_str + "        {\n";
@@ -519,9 +524,9 @@ pub fn generate_solidity_verifier<
             filter_str += &*("field_ext_from(".to_owned()
                 + &i.to_string()
                 + ", 0).sub("
-                + "le_bytes16_to_ext(proof.openings_constants["
+                + "constants["
                 + &*selector_index.to_string()
-                + "])).mul(");
+                + "]).mul(");
             c = c + 1;
         }
         filter_str = filter_str[0..filter_str.len() - 5].parse()?;
@@ -539,117 +544,50 @@ pub fn generate_solidity_verifier<
         let mut eval_str = "            // ".to_owned() + &*gate.0.id() + "\n";
         let gate_name = gate.0.id();
         if gate_name[0..12].eq("ConstantGate") {
-            eval_str += &*format!(
-                "            for (uint32 i = 0; i < {}; i++) {{\n",
-                gate.0.num_constants()
-            );
-            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_constants[i + {}]).sub(le_bytes16_to_ext(proof.openings_wires[i])).mul(filter));\n", num_selectors);
-            eval_str += &*format!("            }}\n");
+            let code_str = gate.0.export_solidity_verification_code();
+            eval_str += &*code_str;
         } else if gate_name.eq("PublicInputGate") {
-            eval_str += &*format!("            for (uint32 i = 0; i < 4; i++) {{\n");
-            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_wires[i]).sub(le_bytes8_to_ext(challenges.public_input_hash[i])).mul(filter));\n");
-            eval_str += &*format!("            }}\n");
+            let code_str = gate.0.export_solidity_verification_code();
+            eval_str += &*code_str;
         } else if gate_name[0..11].eq("BaseSumGate") {
-            let v: Vec<&str> = gate_name.split(' ').collect();
-            let num_limbs = v[3].parse::<usize>().unwrap();
-            let base = v[7].parse::<usize>().unwrap();
-
-            eval_str += &*format!("            uint64[2] memory sum;\n");
-            eval_str += &*format!(
-                "            for (uint32 i = {}; i > 1; i--) {{\n",
-                num_limbs + 1
-            );
-            eval_str += &*format!("                sum = sum.mul(field_ext_from({}, 0)).add(le_bytes16_to_ext(proof.openings_wires[i - 1]));\n", base);
-            eval_str += &*format!("            }}\n");
-
-            eval_str += &*format!("            vm.constraint_terms[0] = vm.constraint_terms[0].add(sum.sub(le_bytes16_to_ext(proof.openings_wires[0])).mul(filter));\n");
-
-            eval_str += &*format!(
-                "            for (uint32 i = 1; i < {}; i++) {{\n",
-                num_limbs + 1
-            );
-            eval_str += &*format!("                uint64[2] memory product = le_bytes16_to_ext(proof.openings_wires[i]);\n");
-            eval_str += &*format!("                for (uint32 j = 1; j < {}; j++) {{\n", base);
-            eval_str += &*format!("                    product = product.mul(le_bytes16_to_ext(proof.openings_wires[i]).sub(field_ext_from(j, 0)));\n");
-            eval_str += &*format!("                }}\n");
-            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(product.mul(filter));\n");
-            eval_str += &*format!("            }}\n");
+            let code_str = gate.0.export_solidity_verification_code();
+            eval_str += &*code_str;
         } else if gate_name[0..14].eq("ArithmeticGate") {
-            let v: Vec<&str> = gate_name.split(' ').collect();
-            let num_ops = v[3].parse::<usize>().unwrap();
-
-            eval_str += &*format!("            for (uint32 i = 0; i < {}; i++) {{\n", num_ops);
-            eval_str += &*format!("                uint64[2] memory constraint;\n");
-            eval_str += &*format!("                constraint = le_bytes16_to_ext(proof.openings_wires[4 * i]).mul(le_bytes16_to_ext(proof.openings_wires[4 * i + 1])).mul(le_bytes16_to_ext(proof.openings_constants[{}])).add(le_bytes16_to_ext(proof.openings_wires[4 * i + 2]).mul(le_bytes16_to_ext(proof.openings_constants[{}])));\n",num_selectors,num_selectors+1);
-            eval_str += &*format!("                vm.constraint_terms[i] = vm.constraint_terms[i].add(le_bytes16_to_ext(proof.openings_wires[4 * i + 3]).sub(constraint).mul(filter));\n");
-            eval_str += &*format!("            }}\n");
+            let code_str = gate.0.export_solidity_verification_code();
+            eval_str += &*code_str;
         } else if gate_name[0..17].eq("U32ArithmeticGate") {
-            let v: Vec<&str> = gate_name.split(' ').collect();
-            let vv: Vec<&str> = v[3].split(',').collect();
-            let num_ops = vv[0].parse::<usize>().unwrap();
-
-            eval_str += &*format!("            uint32 index = 0;\n");
-            eval_str += &*format!("            for (uint32 i = 0; i < {}; i++) {{\n", num_ops);
-            eval_str += &*format!("                vm.constraint_terms[index] = vm.constraint_terms[index].add(le_bytes16_to_ext(proof.openings_wires[6 * i + 5]).mul(field_ext_from(0xFFFFFFFF, 0).sub(le_bytes16_to_ext(proof.openings_wires[6 * i + 4]))).sub(field_ext_from(1, 0)).mul(le_bytes16_to_ext(proof.openings_wires[6 * i + 3])).mul(filter));\n");
-            eval_str += &*format!("                index++;\n");
-            eval_str += &*format!("                vm.constraint_terms[index] = vm.constraint_terms[index].add(le_bytes16_to_ext(proof.openings_wires[6 * i + 4]).mul(field_ext_from(0x100000000, 0)).add(le_bytes16_to_ext(proof.openings_wires[6 * i + 3])).sub(le_bytes16_to_ext(proof.openings_wires[6 * i]).mul(le_bytes16_to_ext(proof.openings_wires[6 * i + 1])).add(le_bytes16_to_ext(proof.openings_wires[6 * i + 2]))).mul(filter));\n");
-            eval_str += &*format!("                index++;\n");
-
-            // limb_bits: 2
-            // num_limbs: 32
-            // midpoint: 16
-            // max_limb: 4
-            eval_str += &*format!("                uint64[2] memory combined_low_limbs;\n");
-            eval_str += &*format!("                uint64[2] memory combined_high_limbs;\n");
-            eval_str += &*format!("                for (uint32 j = 32; j > 0; j--) {{\n");
-            eval_str += &*format!("                    uint64[2] memory this_limb = le_bytes16_to_ext(proof.openings_wires[6 * {} + 32 * i + j - 1]);\n", num_ops);
-            eval_str += &*format!("                    uint64[2] memory product = this_limb;\n");
-            eval_str += &*format!("                    for (uint32 k = 1; k < 4; k++) {{\n");
-            eval_str += &*format!("                        product = product.mul(this_limb.sub(field_ext_from(k, 0)));\n");
-            eval_str += &*format!("                    }}\n");
-            eval_str += &*format!("                    vm.constraint_terms[index] = vm.constraint_terms[index].add(product.mul(filter));\n");
-            eval_str += &*format!("                    index++;\n");
-            eval_str += &*format!("                    if (j - 1 < 16) {{\n");
-            eval_str += &*format!("                        combined_low_limbs = field_ext_from(4, 0).mul(combined_low_limbs).add(this_limb);\n");
-            eval_str += &*format!("                    }} else {{\n");
-            eval_str += &*format!("                        combined_high_limbs = field_ext_from(4, 0).mul(combined_high_limbs).add(this_limb);\n");
-            eval_str += &*format!("                    }}\n");
-            eval_str += &*format!("                }}\n");
-            eval_str += &*format!("                vm.constraint_terms[index] = vm.constraint_terms[index].add(combined_low_limbs.sub(le_bytes16_to_ext(proof.openings_wires[6 * i + 3])).mul(filter));\n");
-            eval_str += &*format!("                index++;\n");
-            eval_str += &*format!("                vm.constraint_terms[index] = vm.constraint_terms[index].add(combined_high_limbs.sub(le_bytes16_to_ext(proof.openings_wires[6 * i + 4])).mul(filter));\n");
-            eval_str += &*format!("                index++;\n");
-            eval_str += &*format!("            }}\n");
+            let code_str = gate.0.export_solidity_verification_code();
+            eval_str += &*code_str;
         } else if gate_name[0..26].eq("LowDegreeInterpolationGate") {
-
+            let code_str = gate.0.export_solidity_verification_code();
+            let v: Vec<&str> = code_str.split(' ').collect();
+            let lib_name = v[1];
+            eval_str += &*("            ".to_owned()
+                + lib_name
+                + ".eval(wires, vm.constraint_terms, filter); \n");
+            gates_lib += &*(code_str + "\n");
         } else if gate_name[0..21].eq("ReducingExtensionGate") {
-
         } else if gate_name[0..12].eq("ReducingGate") {
-
         } else if gate_name[0..23].eq("ArithmeticExtensionGate") {
-
         } else if gate_name[0..16].eq("MulExtensionGate") {
-
         } else if gate_name[0..16].eq("RandomAccessGate") {
-
         } else if gate_name[0..18].eq("ExponentiationGate") {
-
         } else if gate_name[0..12].eq("PoseidonGate") {
-
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         }
-        eval_str += &*format!("console.log(\"{}\");\n", gate_name);
-        eval_str += stringify!(
-        console.log(vm.constraint_terms[0][0]);
-        console.log(vm.constraint_terms[0][1]);
-        console.log(vm.constraint_terms[1][0]);
-        console.log(vm.constraint_terms[1][1]);
-        console.log(vm.constraint_terms[2][0]);
-        console.log(vm.constraint_terms[2][1]);
-        console.log(vm.constraint_terms[3][0]);
-        console.log(vm.constraint_terms[3][1]);
-        console.log("");
+        eval_str += &*format!("            console.log(\"{}\");", gate_name);
+        eval_str += &*format!(
+            "
+            console.log(vm.constraint_terms[0][0]);
+            console.log(vm.constraint_terms[0][1]);
+            console.log(vm.constraint_terms[1][0]);
+            console.log(vm.constraint_terms[1][1]);
+            console.log(vm.constraint_terms[2][0]);
+            console.log(vm.constraint_terms[2][1]);
+            console.log(vm.constraint_terms[3][0]);
+            console.log(vm.constraint_terms[3][1]);
+            console.log(\"\");\n"
         );
         evaluate_gate_constraints_str += &*eval_str;
         evaluate_gate_constraints_str += "        }\n";
@@ -659,7 +597,13 @@ pub fn generate_solidity_verifier<
         &evaluate_gate_constraints_str[0..evaluate_gate_constraints_str.len() - 1],
     );
 
-    Ok(contract)
+    gates_lib = gates_lib.replace(
+        "$NUM_GATE_CONSTRAINTS",
+        &*common.num_gate_constraints.to_string(),
+    );
+    gates_lib = gates_lib.replace("$NUM_OPENINGS_WIRES", &*conf.num_openings_wires.to_string());
+
+    Ok((contract, gates_lib))
 }
 
 #[cfg(test)]
@@ -761,10 +705,12 @@ mod tests {
         let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 0)?;
 
         let conf = generate_verifier_config(&proof)?;
-        let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
+        let (contract, gates_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
+        sol_file = File::create("./contract/contracts/GatesLib.sol")?;
+        sol_file.write_all(gates_lib.as_bytes())?;
 
         let proof_base64 = generate_proof_base64(&proof, &conf)?;
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
@@ -814,10 +760,12 @@ mod tests {
         let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 4)?;
 
         let conf = generate_verifier_config(&proof)?;
-        let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
+        let (contract, gates_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
+        sol_file = File::create("./contract/contracts/GatesLib.sol")?;
+        sol_file.write_all(gates_lib.as_bytes())?;
 
         let proof_base64 = generate_proof_base64(&proof, &conf)?;
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
@@ -875,10 +823,12 @@ mod tests {
             recursive_proof::<F, KC2, C, D>(proof, vd, cd, &final_config, None, true, true)?;
 
         let conf = generate_verifier_config(&proof)?;
-        let contract = generate_solidity_verifier(&conf, &cd, &vd)?;
+        let (contract, gates_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
+        sol_file = File::create("./contract/contracts/GatesLib.sol")?;
+        sol_file.write_all(gates_lib.as_bytes())?;
 
         let proof_base64 = generate_proof_base64(&proof, &conf)?;
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
