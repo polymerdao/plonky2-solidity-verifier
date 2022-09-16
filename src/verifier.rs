@@ -566,6 +566,17 @@ pub fn generate_solidity_verifier<
                 + lib_name
                 + ".eval(wires, vm.constraint_terms, filter); \n");
             gates_lib += &*(code_str + "\n");
+            eval_str += &*format!("            console.log(\"{}\");", gate_name);
+            eval_str += &*format!(
+                "
+            for (uint32 i = 0; i < {}; i++) {{
+                console.log(i);
+                console.log(vm.constraint_terms[i][0]);
+                console.log(vm.constraint_terms[i][1]);
+            }}
+            console.log(\"\");\n",
+                &*common.num_gate_constraints.to_string(),
+            );
         } else if gate_name[0..21].eq("ReducingExtensionGate") {
         } else if gate_name[0..12].eq("ReducingGate") {
         } else if gate_name[0..23].eq("ArithmeticExtensionGate") {
@@ -576,19 +587,6 @@ pub fn generate_solidity_verifier<
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         }
-        eval_str += &*format!("            console.log(\"{}\");", gate_name);
-        eval_str += &*format!(
-            "
-            console.log(vm.constraint_terms[0][0]);
-            console.log(vm.constraint_terms[0][1]);
-            console.log(vm.constraint_terms[1][0]);
-            console.log(vm.constraint_terms[1][1]);
-            console.log(vm.constraint_terms[2][0]);
-            console.log(vm.constraint_terms[2][1]);
-            console.log(vm.constraint_terms[3][0]);
-            console.log(vm.constraint_terms[3][1]);
-            console.log(\"\");\n"
-        );
         evaluate_gate_constraints_str += &*eval_str;
         evaluate_gate_constraints_str += "        }\n";
     }
