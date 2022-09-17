@@ -8,6 +8,18 @@ library GatesUtilsLib {
     using GoldilocksFieldLib for uint64;
     using GoldilocksExtLib for uint64[2];
 
+    struct EvaluationVars {
+        uint64[2][$NUM_OPENINGS_CONSTANTS] constants;
+        uint64[2][$NUM_OPENINGS_WIRES] wires;
+        uint64[2][4] public_input_hash;
+        uint64[2] filter;
+    }
+
+    function field_ext_from(uint64 x, uint64 y) internal pure returns (uint64[2] memory res) {
+        res[0] = x;
+        res[1] = y;
+    }
+
     function push(uint64[2][$NUM_GATE_CONSTRAINTS] memory constraints,
         uint64[2] memory filter, uint32 index, uint64[2] memory value)
     internal pure {

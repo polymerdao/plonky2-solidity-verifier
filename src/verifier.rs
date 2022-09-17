@@ -516,15 +516,15 @@ pub fn generate_solidity_verifier<
         let mut c = 0;
 
         evaluate_gate_constraints_str = evaluate_gate_constraints_str + "        {\n";
-        let mut filter_str = "            uint64[2] memory filter = ".to_owned();
+        let mut filter_str = "ev.filter = ".to_owned();
         let filter_chain = group_range
             .filter(|&i| i != row)
             .chain((num_selectors > 1).then_some(u32::MAX as usize));
         for i in filter_chain {
-            filter_str += &*("field_ext_from(".to_owned()
+            filter_str += &*("GatesUtilsLib.field_ext_from(".to_owned()
                 + &i.to_string()
                 + ", 0).sub("
-                + "constants["
+                + "ev.constants["
                 + &*selector_index.to_string()
                 + "]).mul(");
             c = c + 1;
@@ -533,8 +533,7 @@ pub fn generate_solidity_verifier<
         for _ in 0..c - 1 {
             filter_str = filter_str + ")";
         }
-        filter_str = filter_str + ";\n";
-        evaluate_gate_constraints_str = evaluate_gate_constraints_str + &*filter_str;
+        filter_str = filter_str + ";";
 
         // vars:
         //   proof.openings_constants
@@ -543,47 +542,26 @@ pub fn generate_solidity_verifier<
         // local_constants = local_constants[num_selectors..];
         let mut eval_str = "            // ".to_owned() + &*gate.0.id() + "\n";
         let gate_name = gate.0.id();
-        if gate_name[0..12].eq("ConstantGate") {
-            let code_str = gate.0.export_solidity_verification_code();
-            eval_str += &*code_str;
-        } else if gate_name.eq("PublicInputGate") {
-            let code_str = gate.0.export_solidity_verification_code();
-            eval_str += &*code_str;
-        } else if gate_name[0..11].eq("BaseSumGate") {
-            let code_str = gate.0.export_solidity_verification_code();
-            eval_str += &*code_str;
-        } else if gate_name[0..14].eq("ArithmeticGate") {
-            let code_str = gate.0.export_solidity_verification_code();
-            eval_str += &*code_str;
-        } else if gate_name[0..17].eq("U32ArithmeticGate") {
-            let code_str = gate.0.export_solidity_verification_code();
-            eval_str += &*code_str;
-        } else if gate_name[0..26].eq("LowDegreeInterpolationGate") {
-            let code_str = gate.0.export_solidity_verification_code();
-            let v: Vec<&str> = code_str.split(' ').collect();
-            let lib_name = v[1];
-            eval_str += &*("            ".to_owned()
-                + lib_name
-                + ".eval(wires, vm.constraint_terms, filter); \n");
-            gates_lib += &*(code_str + "\n");
-        } else if gate_name[0..21].eq("ReducingExtensionGate") {
-            let code_str = gate.0.export_solidity_verification_code();
-            let v: Vec<&str> = code_str.split(' ').collect();
-            let lib_name = v[1];
-            eval_str += &*("            ".to_owned()
-                + lib_name
-                + ".eval(wires, vm.constraint_terms, filter); \n");
-            gates_lib += &*(code_str + "\n");
-        } else if gate_name[0..12].eq("ReducingGate") {
+        if gate_name.eq("PublicInputGate")
+            || gate_name[0..11].eq("BaseSumGate")
+            || gate_name[0..12].eq("ConstantGate")
+            || gate_name[0..12].eq("ReducingGate")
+            || gate_name[0..14].eq("ArithmeticGate")
+            || gate_name[0..17].eq("U32ArithmeticGate")
+            || gate_name[0..21].eq("ReducingExtensionGate")
+            || gate_name[0..23].eq("ArithmeticExtensionGate")
+            || gate_name[0..26].eq("LowDegreeInterpolationGate")
+        {
             //TODO: use num_coeff as a param (same TODO for other gates)
-            let code_str = gate.0.export_solidity_verification_code();
+            let mut code_str = gate.0.export_solidity_verification_code();
+            code_str = code_str.replace("$SET_FILTER;", &*filter_str);
             let v: Vec<&str> = code_str.split(' ').collect();
             let lib_name = v[1];
-            eval_str += &*("            ".to_owned()
-                + lib_name
-                + ".eval(wires, vm.constraint_terms, filter); \n");
+            eval_str += &*("            ".to_owned() + lib_name + ".set_filter(ev); \n");
+            eval_str +=
+                &*("            ".to_owned() + lib_name + ".eval(ev, vm.constraint_terms); \n");
             gates_lib += &*(code_str + "\n");
-        } else if gate_name[0..23].eq("ArithmeticExtensionGate") {
+        } else if gate_name[0..16].eq("MulExtensionGate") {
             eval_str += &*format!("            console.log(\"{}\");", gate_name);
             eval_str += &*format!(
                 "
@@ -595,7 +573,6 @@ pub fn generate_solidity_verifier<
             console.log(\"\");\n",
                 &*common.num_gate_constraints.to_string(),
             );
-        } else if gate_name[0..16].eq("MulExtensionGate") {
         } else if gate_name[0..16].eq("RandomAccessGate") {
         } else if gate_name[0..18].eq("ExponentiationGate") {
         } else if gate_name[0..12].eq("PoseidonGate") {
@@ -613,6 +590,11 @@ pub fn generate_solidity_verifier<
     gates_lib = gates_lib.replace(
         "$NUM_GATE_CONSTRAINTS",
         &*common.num_gate_constraints.to_string(),
+    );
+    gates_lib = gates_lib.replace("$NUM_SELECTORS", &num_selectors.to_string());
+    gates_lib = gates_lib.replace(
+        "$NUM_OPENINGS_CONSTANTS",
+        &*conf.num_openings_constants.to_string(),
     );
     gates_lib = gates_lib.replace("$NUM_OPENINGS_WIRES", &*conf.num_openings_wires.to_string());
     gates_lib = gates_lib.replace("$D", &*D.to_string());

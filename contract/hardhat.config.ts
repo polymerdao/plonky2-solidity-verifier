@@ -5,6 +5,7 @@ module.exports = {
     networks: {
         hardhat: {
             gas: 3000000000000000,
+            allowUnlimitedContractSize: true,
         },
     },
     solidity: {
