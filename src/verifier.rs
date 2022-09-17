@@ -566,6 +566,24 @@ pub fn generate_solidity_verifier<
                 + lib_name
                 + ".eval(wires, vm.constraint_terms, filter); \n");
             gates_lib += &*(code_str + "\n");
+        } else if gate_name[0..21].eq("ReducingExtensionGate") {
+            let code_str = gate.0.export_solidity_verification_code();
+            let v: Vec<&str> = code_str.split(' ').collect();
+            let lib_name = v[1];
+            eval_str += &*("            ".to_owned()
+                + lib_name
+                + ".eval(wires, vm.constraint_terms, filter); \n");
+            gates_lib += &*(code_str + "\n");
+        } else if gate_name[0..12].eq("ReducingGate") {
+            //TODO: use num_coeff as a param (same TODO for other gates)
+            let code_str = gate.0.export_solidity_verification_code();
+            let v: Vec<&str> = code_str.split(' ').collect();
+            let lib_name = v[1];
+            eval_str += &*("            ".to_owned()
+                + lib_name
+                + ".eval(wires, vm.constraint_terms, filter); \n");
+            gates_lib += &*(code_str + "\n");
+        } else if gate_name[0..23].eq("ArithmeticExtensionGate") {
             eval_str += &*format!("            console.log(\"{}\");", gate_name);
             eval_str += &*format!(
                 "
@@ -577,9 +595,6 @@ pub fn generate_solidity_verifier<
             console.log(\"\");\n",
                 &*common.num_gate_constraints.to_string(),
             );
-        } else if gate_name[0..21].eq("ReducingExtensionGate") {
-        } else if gate_name[0..12].eq("ReducingGate") {
-        } else if gate_name[0..23].eq("ArithmeticExtensionGate") {
         } else if gate_name[0..16].eq("MulExtensionGate") {
         } else if gate_name[0..16].eq("RandomAccessGate") {
         } else if gate_name[0..18].eq("ExponentiationGate") {
@@ -600,6 +615,8 @@ pub fn generate_solidity_verifier<
         &*common.num_gate_constraints.to_string(),
     );
     gates_lib = gates_lib.replace("$NUM_OPENINGS_WIRES", &*conf.num_openings_wires.to_string());
+    gates_lib = gates_lib.replace("$D", &*D.to_string());
+    gates_lib = gates_lib.replace("$F_EXT_W", &*F::W.to_basefield_array()[0].to_string());
 
     Ok((contract, gates_lib))
 }
