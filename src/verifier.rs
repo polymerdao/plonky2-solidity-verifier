@@ -547,6 +547,7 @@ pub fn generate_solidity_verifier<
             || gate_name[0..12].eq("ConstantGate")
             || gate_name[0..12].eq("ReducingGate")
             || gate_name[0..14].eq("ArithmeticGate")
+            || gate_name[0..16].eq("MulExtensionGate")
             || gate_name[0..17].eq("U32ArithmeticGate")
             || gate_name[0..21].eq("ReducingExtensionGate")
             || gate_name[0..23].eq("ArithmeticExtensionGate")
@@ -561,7 +562,6 @@ pub fn generate_solidity_verifier<
             eval_str +=
                 &*("            ".to_owned() + lib_name + ".eval(ev, vm.constraint_terms); \n");
             gates_lib += &*(code_str + "\n");
-        } else if gate_name[0..16].eq("MulExtensionGate") {
             eval_str += &*format!("            console.log(\"{}\");", gate_name);
             eval_str += &*format!(
                 "
