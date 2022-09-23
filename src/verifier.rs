@@ -548,6 +548,7 @@ pub fn generate_solidity_verifier<
             || gate_name[0..12].eq("ReducingGate")
             || gate_name[0..14].eq("ArithmeticGate")
             || gate_name[0..16].eq("MulExtensionGate")
+            || gate_name[0..16].eq("RandomAccessGate")
             || gate_name[0..17].eq("U32ArithmeticGate")
             || gate_name[0..18].eq("ExponentiationGate")
             || gate_name[0..21].eq("ReducingExtensionGate")
@@ -574,7 +575,6 @@ pub fn generate_solidity_verifier<
             console.log(\"\");\n",
                 &*common.num_gate_constraints.to_string(),
             );
-        } else if gate_name[0..16].eq("RandomAccessGate") {
         } else if gate_name[0..12].eq("PoseidonGate") {
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
