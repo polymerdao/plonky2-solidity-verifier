@@ -6,12 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#plonky2 = { git = "https://github.com/polymerdao/plonky2", rev = "8d930f42" }
-#plonky2_util = { git = "https://github.com/polymerdao/plonky2", rev = "8d930f42" }
-#plonky2_sha256 = { git = "https://github.com/polymerdao/plonky2-sha256", rev = "b8eda09a" }
-plonky2 = { path = "../plonky2/plonky2" }
-plonky2_util = { path = "../plonky2/util" }
-plonky2_sha256 = { path = "../plonky2-sha256" }
+plonky2 = { git = "https://github.com/polymerdao/plonky2", rev = "14d5ee0c" }
+plonky2_util = { git = "https://github.com/polymerdao/plonky2", rev = "14d5ee0c" }
+plonky2_sha256 = { git = "https://github.com/polymerdao/plonky2-sha256", rev = "e6db1b0a" }
 anyhow = "1.0.40"
 log = "0.4.14"
 env_logger = "0.9.0"

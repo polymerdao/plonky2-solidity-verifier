@@ -564,18 +564,19 @@ pub fn generate_solidity_verifier<
             eval_str +=
                 &*("            ".to_owned() + lib_name + ".eval(ev, vm.constraint_terms); \n");
             gates_lib += &*(code_str + "\n");
-            eval_str += &*format!("            console.log(\"{}\");", gate_name);
-            eval_str += &*format!(
-                "
-            for (uint32 i = 0; i < {}; i++) {{
-                console.log(i);
-                console.log(vm.constraint_terms[i][0]);
-                console.log(vm.constraint_terms[i][1]);
-            }}
-            console.log(\"\");\n",
-                &*common.num_gate_constraints.to_string(),
-            );
+            // eval_str += &*format!("            console.log(\"{}\");", gate_name);
+            // eval_str += &*format!(
+            //     "
+            // for (uint32 i = 0; i < {}; i++) {{
+            //     console.log(i);
+            //     console.log(vm.constraint_terms[i][0]);
+            //     console.log(vm.constraint_terms[i][1]);
+            // }}
+            // console.log(\"\");\n",
+            //     &*common.num_gate_constraints.to_string(),
+            // );
         } else if gate_name[0..12].eq("PoseidonGate") {
+            todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         } else {
             todo!("{}", "gate not implemented: ".to_owned() + &gate_name)
         }

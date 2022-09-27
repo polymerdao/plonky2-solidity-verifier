@@ -199,7 +199,7 @@ describe("Verifier", function () {
                 fri_pow_witness,
                 public_inputs,
             };
-            expect(await verifier.verify(input)).to.equal(true);
+            await verifier.execute_verify(input);
         });
     });
 
@@ -208,77 +208,67 @@ describe("Verifier", function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            expect(await tests.test_add()).to.equal(10079447802539789578n);
+            await tests.test_add();
         });
         it("test_mul", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            expect(await tests.test_mul()).to.equal(5496890231018735829n);
+            await tests.test_mul();
         });
         it("test_inverse", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            expect(await tests.test_inverse()).to.equal(7154952498519749264n);
+            await tests.test_inverse();
         });
         it("test_mul_ext", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            let res = await tests.test_mul_ext();
-            expect(res[0]).to.equal(15052319864161058789n);
-            expect(res[1]).to.equal(16841416332519902625n);
+            await tests.test_mul_ext();
         });
         it("test_div_ext", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            let res = await tests.test_div_ext();
-            expect(res[0]).to.equal(15052319864161058789n);
-            expect(res[1]).to.equal(16841416332519902625n);
+            await tests.test_div_ext();
         });
         it("test_inverse_2exp_12", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            expect(await tests.test_inverse_2exp_12()).to.equal(18442240469788262401n);
+            await tests.test_inverse_2exp_12();
         });
         it("test_inverse_2exp_109", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            expect(await tests.test_inverse_2exp_109()).to.equal(2251799813160960n);
+            await tests.test_inverse_2exp_109();
         });
         it("test_exp", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            expect(await tests.test_exp()).to.equal(8162053712235223550n);
+            await tests.test_exp();
         });
         it("test_exp_ext", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            let res = await tests.test_exp_ext();
-            expect(res[0]).to.equal(4994088319481652599n);
-            expect(res[1]).to.equal(16489566008211790727n);
+            await tests.test_exp_ext();
         });
         it("test_u160_times_7", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            let res = await tests.test_u160_times_7();
-            expect(res[0]).to.equal(188408379034022359946686806796179820532n);
-            expect(res[1]).to.equal(4n);
+            await tests.test_u160_times_7();
         });
         it("test_repeated_frobenius", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();
 
-            let res = await tests.test_repeated_frobenius();
-            expect(res[0]).to.equal(7166004739148609569n);
-            expect(res[1]).to.equal(3790778197751029305n);
+            await tests.test_repeated_frobenius();
         });
     });
 
@@ -287,8 +277,7 @@ describe("Verifier", function () {
             const Contract = await ethers.getContractFactory("TestChallenger");
             const tests = await Contract.deploy();
 
-            let res = await tests.test_challenger();
-            expect(res).to.equal(true);
+            await tests.test_challenger();
         });
     });
 
@@ -297,9 +286,7 @@ describe("Verifier", function () {
             const Contract = await ethers.getContractFactory("TestPlonk");
             const tests = await Contract.deploy();
 
-            let res = await tests.test_eval_l_1();
-            expect(res[0]).to.equal(15052319864161058789n);
-            expect(res[1]).to.equal(16841416332519902625n);
+            await tests.test_eval_l_1();
         });
     });
 });

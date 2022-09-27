@@ -243,7 +243,7 @@ contract Plonky2Verifier {
         uint64[2][NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES] vanishing_partial_products_terms;
     }
 
-    function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
+    function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
         GatesUtilsLib.EvaluationVars memory ev;
         for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
             ev.constants[i] = le_bytes16_to_ext(proof.openings_constants[i]);
@@ -258,7 +258,7 @@ contract Plonky2Verifier {
         $EVALUATE_GATE_CONSTRAINTS;
     }
 
-    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
+    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
         evaluate_gate_constraints(proof, challenges, vm);
 
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
@@ -613,7 +613,7 @@ contract Plonky2Verifier {
         return res;
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
+    function verify(Proof calldata proof_with_public_inputs) public pure returns (bool) {
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
         ProofChallenges memory challenges;
@@ -652,5 +652,9 @@ contract Plonky2Verifier {
         }
 
         return verify_fri_proof(proof_with_public_inputs, challenges);
+    }
+
+    function execute_verify(Proof calldata proof_with_public_inputs) external {
+        require(verify(proof_with_public_inputs));
     }
 }

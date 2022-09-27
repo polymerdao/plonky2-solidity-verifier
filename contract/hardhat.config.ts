@@ -4,8 +4,9 @@ import "hardhat-gas-reporter"
 module.exports = {
     networks: {
         hardhat: {
-            gas: 3000000000000000,
             allowUnlimitedContractSize: true,
+            blockGasLimit: 3000000000,
+            gas: 300000000,
         },
     },
     solidity: {

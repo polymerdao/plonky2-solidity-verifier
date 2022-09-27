@@ -9,7 +9,7 @@ contract TestChallenger {
         challenger.observe_element(ChallengerLib.elementToLeBytes(num));
     }
 
-    function test_challenger() public pure returns (bool) {
+    function test_challenger() external {
         ChallengerLib.Challenger memory challenger;
 
         observe_uint64(challenger, 8917524657281059100);
@@ -23,7 +23,5 @@ contract TestChallenger {
         require(nums[1] == 2969885698010629776);
         require(nums[2] == 891839585018115537);
         require(nums[3] == 6951606774775366384);
-
-        return true;
     }
 }
