@@ -66,15 +66,6 @@ library GoldilocksFieldLib {
         return res;
     }
 
-    function trailing_zeros(uint64 a) internal pure returns (uint32 res) {
-        if (a == 0) return 0;
-        while (a & 1 == 0) {
-            a = a >> 1;
-            res++;
-        }
-        return res;
-    }
-
     /// Compute the inverse of 2^x in this field.
     function inverse_2exp(uint32 x) internal pure returns (uint64) {
         if (x > CHARACTERISTIC_TWO_ADICITY) {
