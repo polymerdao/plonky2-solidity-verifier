@@ -63,17 +63,6 @@ contract TestGoldilocks {
         require(res[1] == 16489566008211790727);
     }
 
-    function test_u160_times_7() external {
-        uint64 a1 = 16489566008211790727;
-        uint64 b1 = 13424401189265534004;
-        uint128 a1_mul_b1 = uint128(a1) * uint128(b1);
-        uint128 a;
-        uint32 b;
-        (a, b) = GoldilocksExtLib.u160_times_7(a1_mul_b1, 0);
-        require(a == 188408379034022359946686806796179820532);
-        require(b == 4);
-    }
-
     function test_repeated_frobenius() external {
         uint64[2] memory x;
         x[0] = 7166004739148609569;

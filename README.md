@@ -3,8 +3,8 @@
 Updates
 -----
 
-- **9/27/2022** Added more gates support. Updated gas estimations. Current gas cost for verification of a size 50855
-  dummy proof is 62M. Current gas cost of verification of a size 59243 proof with public inputs is 97M.
+- **9/28/2022** Current gas cost for verification of a size 50855 dummy proof is 27M.
+- **9/27/2022** Added more gates support. Updated gas estimations.
 - **9/11/2022** Added public inputs support. Temporarily use sha256 as the public inputs hash function (slightly more
   gas than keccak256) due to missing keccak256 plonky2 circuits.
 - **9/2/2022** Implemented verify_fri_proof().
@@ -79,13 +79,13 @@ proof size: 50855
 ····················|··················|·············|·············|·············|················|···············
 |  Contract         ·  Method          ·  Min        ·  Max        ·  Avg        ·  # calls       ·  usd (avg)   │
 ····················|··················|·············|·············|·············|················|···············
-|  Plonky2Verifier  ·  execute_verify  ·          -  ·          -  ·   62045524  ·             1  ·           -  │
+|  Plonky2Verifier  ·  execute_verify  ·          -  ·          -  ·   27199014  ·             1  ·           -  │
 ····················|··················|·············|·············|·············|················|···············
 |  Deployments                         ·                                         ·  % of limit    ·              │
 ·······································|·············|·············|·············|················|···············
-|  Plonky2Verifier                     ·          -  ·          -  ·    4291427  ·         0.1 %  ·           -  │
+|  Plonky2Verifier                     ·          -  ·          -  ·    3818777  ·         0.1 %  ·           -  │
 ·--------------------------------------|-------------|-------------|-------------|----------------|--------------·
 
-  1 passing (40s)
+  1 passing (12s)
 
 ```

@@ -258,12 +258,6 @@ describe("Verifier", function () {
 
             await tests.test_exp_ext();
         });
-        it("test_u160_times_7", async function () {
-            const Contract = await ethers.getContractFactory("TestGoldilocks");
-            const tests = await Contract.deploy();
-
-            await tests.test_u160_times_7();
-        });
         it("test_repeated_frobenius", async function () {
             const Contract = await ethers.getContractFactory("TestGoldilocks");
             const tests = await Contract.deploy();

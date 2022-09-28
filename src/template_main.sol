@@ -258,7 +258,7 @@ contract Plonky2Verifier {
         $EVALUATE_GATE_CONSTRAINTS;
     }
 
-    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
+    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
         evaluate_gate_constraints(proof, challenges, vm);
 
         uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
@@ -448,7 +448,7 @@ contract Plonky2Verifier {
     }
 
     // TODO: optimization barycentric_weights calculations
-    function cal_barycentric_weights(uint64[2][16] memory barycentric_weights, uint64[2][16] memory points, uint32 arity) internal pure {
+    function cal_barycentric_weights(uint64[2][16] memory barycentric_weights, uint64[2][16] memory points, uint32 arity) internal view {
         barycentric_weights[0][0] = points[0][0].sub(points[1][0]);
         for (uint32 j = 2; j < arity; j++) {
             barycentric_weights[0][0] = barycentric_weights[0][0].mul(points[0][0].sub(points[j][0]));
@@ -466,7 +466,7 @@ contract Plonky2Verifier {
         }
     }
 
-    function get_points(uint64[2][16] memory points, uint32 arity_bits, uint32 x_index_within_coset, uint64 subgroup_x) internal pure {
+    function get_points(uint64[2][16] memory points, uint32 arity_bits, uint32 x_index_within_coset, uint64 subgroup_x) internal view {
         uint32 arity = uint32(1 << arity_bits);
         uint64 g_arity = get_g_by_arity_bits(arity_bits);
         uint32 rev_x_index_within_coset = reverse_bits(x_index_within_coset, arity_bits);
@@ -477,7 +477,7 @@ contract Plonky2Verifier {
     }
 
     function compute_evaluation(Proof calldata proof, uint64[2] memory fri_beta, uint32 round, uint32 reduction,
-        uint32 arity_bits, uint64[2][16] memory points) internal pure returns (uint64[2] memory){
+        uint32 arity_bits, uint64[2][16] memory points) internal view returns (uint64[2] memory){
         uint64[2][16] memory barycentric_weights;
         cal_barycentric_weights(barycentric_weights, points, uint32(1 << arity_bits));
 
@@ -501,7 +501,7 @@ contract Plonky2Verifier {
         return l_x.mul(sum);
     }
 
-    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal pure returns (bool) {
+    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal view returns (bool) {
         // Precomputed reduced openings
         uint64[2][2] memory precomputed_reduced_evals;
         precomputed_reduced_evals[0] = reduce1(proof, challenges.fri_alpha);
@@ -613,7 +613,7 @@ contract Plonky2Verifier {
         return res;
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public pure returns (bool) {
+    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
         ProofChallenges memory challenges;
