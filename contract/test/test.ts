@@ -175,13 +175,6 @@ describe("Verifier", function () {
                 wires_cap,
                 plonk_zs_partial_products_cap,
                 quotient_polys_cap,
-                openings_constants,
-                openings_plonk_sigmas,
-                openings_wires,
-                openings_plonk_zs,
-                openings_plonk_zs_next,
-                openings_partial_products,
-                openings_quotient_polys,
                 fri_commit_phase_merkle_caps,
                 fri_query_init_constants_sigmas_v,
                 fri_query_init_constants_sigmas_p,
@@ -199,7 +192,7 @@ describe("Verifier", function () {
                 fri_pow_witness,
                 public_inputs,
             };
-            await verifier.execute_verify(input);
+            await verifier.execute_verify(input, buf);
         });
     });
 

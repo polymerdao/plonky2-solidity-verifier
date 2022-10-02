@@ -8,26 +8,20 @@ import "./Plonk.sol";
 import "./GoldilocksField.sol";
 import "./GoldilocksExt.sol";
 import "./GatesLib.sol";
+import "./ProofLib.sol";
 
 //TODO: uint64 to bytes8 conversion need to take into account the case n > field_order.
 contract Plonky2Verifier {
     using ChallengerLib for ChallengerLib.Challenger;
     using GoldilocksFieldLib for uint64;
     using GoldilocksExtLib for uint64[2];
+    using ProofLib for bytes;
 
     uint32 constant SIGMAS_CAP_COUNT = $SIGMA_CAP_COUNT;
 
     uint32 constant NUM_WIRES_CAP = $NUM_WIRES_CAP;
     uint32 constant NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP = $NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP;
     uint32 constant NUM_QUOTIENT_POLYS_CAP = $NUM_QUOTIENT_POLYS_CAP;
-
-    uint32 constant NUM_OPENINGS_CONSTANTS = $NUM_OPENINGS_CONSTANTS;
-    uint32 constant NUM_OPENINGS_PLONK_SIGMAS = $NUM_OPENINGS_PLONK_SIGMAS;
-    uint32 constant NUM_OPENINGS_WIRES = $NUM_OPENINGS_WIRES;
-    uint32 constant NUM_OPENINGS_PLONK_ZS = $NUM_OPENINGS_PLONK_ZS0;
-    uint32 constant NUM_OPENINGS_PLONK_ZS_NEXT = $NUM_OPENINGS_PLONK_ZS_NEXT;
-    uint32 constant NUM_OPENINGS_PARTIAL_PRODUCTS = $NUM_OPENINGS_PARTIAL_PRODUCTS;
-    uint32 constant NUM_OPENINGS_QUOTIENT_POLYS = $NUM_OPENINGS_QUOTIENT_POLYS;
 
     uint32 constant NUM_FRI_COMMIT_ROUND = $NUM_FRI_COMMIT_ROUND;
     uint32 constant FRI_COMMIT_MERKLE_CAP_HEIGHT = $FRI_COMMIT_MERKLE_CAP_HEIGHT;
@@ -60,14 +54,6 @@ contract Plonky2Verifier {
         bytes25[] wires_cap;
         bytes25[] plonk_zs_partial_products_cap;
         bytes25[] quotient_polys_cap;
-
-        bytes16[] openings_constants;
-        bytes16[] openings_plonk_sigmas;
-        bytes16[] openings_wires;
-        bytes16[] openings_plonk_zs;
-        bytes16[] openings_plonk_zs_next;
-        bytes16[] openings_partial_products;
-        bytes16[] openings_quotient_polys;
 
         bytes25[][] fri_commit_phase_merkle_caps;
         bytes8[][] fri_query_init_constants_sigmas_v;
@@ -106,7 +92,7 @@ contract Plonky2Verifier {
         return sc;
     }
 
-    function get_k_is(uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is) internal pure {
+    function get_k_is(uint64[$NUM_OPENINGS_PLONK_SIGMAS] memory k_is) internal pure {
         $SET_K_IS;
     }
 
@@ -169,7 +155,7 @@ contract Plonky2Verifier {
         res[3] = bytes8(h << 192);
     }
 
-    function get_challenges(Proof calldata proof, ProofChallenges memory challenges) internal pure {
+    function get_challenges(Proof calldata proof, ProofChallenges memory challenges, bytes calldata proof2) internal pure {
         ChallengerLib.Challenger memory challenger;
         challenger.observe_hash(CIRCUIT_DIGEST);
         challenges.public_input_hash = hash_public_inputs(proof);
@@ -192,26 +178,26 @@ contract Plonky2Verifier {
         }
         challenges.plonk_zeta = challenger.get_extension_challenge();
 
-        for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
-            challenger.observe_extension(proof.openings_constants[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_CONSTANTS; i++) {
+            challenger.observe_extension(proof2.get_openings_constants(i));
         }
-        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_SIGMAS; i++) {
-            challenger.observe_extension(proof.openings_plonk_sigmas[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_PLONK_SIGMAS; i++) {
+            challenger.observe_extension(proof2.get_openings_plonk_sigmas(i));
         }
-        for (uint32 i = 0; i < NUM_OPENINGS_WIRES; i++) {
-            challenger.observe_extension(proof.openings_wires[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_WIRES; i++) {
+            challenger.observe_extension(proof2.get_openings_wires(i));
         }
-        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS; i++) {
-            challenger.observe_extension(proof.openings_plonk_zs[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_PLONK_ZS0; i++) {
+            challenger.observe_extension(proof2.get_openings_plonk_zs(i));
         }
-        for (uint32 i = 0; i < NUM_OPENINGS_PARTIAL_PRODUCTS; i++) {
-            challenger.observe_extension(proof.openings_partial_products[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_PARTIAL_PRODUCTS; i++) {
+            challenger.observe_extension(proof2.get_openings_partial_products(i));
         }
-        for (uint32 i = 0; i < NUM_OPENINGS_QUOTIENT_POLYS; i++) {
-            challenger.observe_extension(proof.openings_quotient_polys[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_QUOTIENT_POLYS; i++) {
+            challenger.observe_extension(proof2.get_openings_quotient_polys(i));
         }
-        for (uint32 i = 0; i < NUM_OPENINGS_PLONK_ZS_NEXT; i++) {
-            challenger.observe_extension(proof.openings_plonk_zs_next[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_PLONK_ZS_NEXT; i++) {
+            challenger.observe_extension(proof2.get_openings_plonk_zs_next(i));
         }
 
         // Fri Challenges
@@ -235,7 +221,7 @@ contract Plonky2Verifier {
         }
     }
 
-    uint32 constant NUM_PARTIAL_PRODUCTS_TERMS = NUM_OPENINGS_PLONK_SIGMAS / QUOTIENT_DEGREE_FACTOR + 1;
+    uint32 constant NUM_PARTIAL_PRODUCTS_TERMS = $NUM_OPENINGS_PLONK_SIGMAS / QUOTIENT_DEGREE_FACTOR + 1;
 
     struct VanishingTerms {
         uint64[2][NUM_GATE_CONSTRAINTS] constraint_terms;
@@ -243,13 +229,13 @@ contract Plonky2Verifier {
         uint64[2][NUM_PARTIAL_PRODUCTS_TERMS * NUM_CHALLENGES] vanishing_partial_products_terms;
     }
 
-    function evaluate_gate_constraints(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
+    function evaluate_gate_constraints(bytes calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal pure {
         GatesUtilsLib.EvaluationVars memory ev;
-        for (uint32 i = 0; i < NUM_OPENINGS_CONSTANTS; i++) {
-            ev.constants[i] = le_bytes16_to_ext(proof.openings_constants[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_CONSTANTS; i++) {
+            ev.constants[i] = le_bytes16_to_ext(proof.get_openings_constants(i));
         }
-        for (uint32 i = 0; i < NUM_OPENINGS_WIRES; i++) {
-            ev.wires[i] = le_bytes16_to_ext(proof.openings_wires[i]);
+        for (uint32 i = 0; i < $NUM_OPENINGS_WIRES; i++) {
+            ev.wires[i] = le_bytes16_to_ext(proof.get_openings_wires(i));
         }
         for (uint32 i = 0; i < 4; i++) {
             ev.public_input_hash[i] = le_bytes8_to_ext(challenges.public_input_hash[i]);
@@ -258,45 +244,52 @@ contract Plonky2Verifier {
         $EVALUATE_GATE_CONSTRAINTS;
     }
 
-    function eval_vanishing_poly(Proof calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
+    struct EvalVanishingPolyVars {
+        uint64[2] z_x;
+        uint64[2] l1_x;
+        uint64[2][$NUM_OPENINGS_PLONK_SIGMAS] numerator_values;
+        uint64[2][$NUM_OPENINGS_PLONK_SIGMAS] denominator_values;
+    }
+
+    function eval_vanishing_poly(bytes calldata proof, ProofChallenges memory challenges, VanishingTerms memory vm) internal view {
         evaluate_gate_constraints(proof, challenges, vm);
+        EvalVanishingPolyVars memory ev;
 
-        uint64[2] memory l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
+        ev.l1_x = PlonkLib.eval_l_1(uint64(1 << DEGREE_BITS), challenges.plonk_zeta);
         for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
-            uint64[2] memory z_x = le_bytes16_to_ext(proof.openings_plonk_zs[i]);
-            vm.vanishing_z_1_terms[i] = l1_x.mul(z_x.sub(GoldilocksExtLib.one()));
+            ev.z_x = le_bytes16_to_ext(proof.get_openings_plonk_zs(i));
+            vm.vanishing_z_1_terms[i] = ev.l1_x.mul(ev.z_x.sub(GoldilocksExtLib.one()));
 
-            uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory numerator_values;
-            uint64[2][NUM_OPENINGS_PLONK_SIGMAS] memory denominator_values;
+            {
+                uint64[$NUM_OPENINGS_PLONK_SIGMAS] memory k_is;
+                get_k_is(k_is);
+                for (uint32 j = 0; j < $NUM_OPENINGS_PLONK_SIGMAS; j++) {
+                    uint64[2] memory wire_value = le_bytes16_to_ext(proof.get_openings_wires(j));
+                    uint64[2] memory s_id = challenges.plonk_zeta.scalar_mul(k_is[j]);
+                    ev.numerator_values[j] = wire_value.add(s_id.scalar_mul(challenges.plonk_betas[i]));
+                    ev.numerator_values[j][0] = ev.numerator_values[j][0].add(challenges.plonk_gammas[i]);
 
-            uint64[NUM_OPENINGS_PLONK_SIGMAS] memory k_is;
-            get_k_is(k_is);
-            for (uint32 j = 0; j < NUM_OPENINGS_PLONK_SIGMAS; j++) {
-                uint64[2] memory wire_value = le_bytes16_to_ext(proof.openings_wires[j]);
-                uint64[2] memory s_id = challenges.plonk_zeta.scalar_mul(k_is[j]);
-                numerator_values[j] = wire_value.add(s_id.scalar_mul(challenges.plonk_betas[i]));
-                numerator_values[j][0] = numerator_values[j][0].add(challenges.plonk_gammas[i]);
-
-                uint64[2] memory s_sigma = le_bytes16_to_ext(proof.openings_plonk_sigmas[j]);
-                denominator_values[j] = wire_value.add(s_sigma.scalar_mul(challenges.plonk_betas[i]));
-                denominator_values[j][0] = denominator_values[j][0].add(challenges.plonk_gammas[i]);
+                    uint64[2] memory s_sigma = le_bytes16_to_ext(proof.get_openings_plonk_sigmas(j));
+                    ev.denominator_values[j] = wire_value.add(s_sigma.scalar_mul(challenges.plonk_betas[i]));
+                    ev.denominator_values[j][0] = ev.denominator_values[j][0].add(challenges.plonk_gammas[i]);
+                }
             }
 
             uint64[2][NUM_PARTIAL_PRODUCTS_TERMS + 1] memory accs;
-            accs[0] = z_x;
-            accs[NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES + 1] = le_bytes16_to_ext(proof.openings_plonk_zs_next[i]);
-            for (uint32 j = 1; j < NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES + 1; j++) {
-                accs[j] = le_bytes16_to_ext(proof.openings_partial_products[i * (NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES) + j - 1]);
+            accs[0] = ev.z_x;
+            accs[$NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES + 1] = le_bytes16_to_ext(proof.get_openings_plonk_zs_next(i));
+            for (uint32 j = 1; j < $NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES + 1; j++) {
+                accs[j] = le_bytes16_to_ext(proof.get_openings_partial_products(i * ($NUM_OPENINGS_PARTIAL_PRODUCTS / NUM_CHALLENGES) + j - 1));
             }
 
             uint32 pos = 0;
             for (uint32 j = 0; j < NUM_PARTIAL_PRODUCTS_TERMS; j++) {
-                uint64[2] memory num_prod = numerator_values[pos];
-                uint64[2] memory den_prod = denominator_values[pos++];
+                uint64[2] memory num_prod = ev.numerator_values[pos];
+                uint64[2] memory den_prod = ev.denominator_values[pos++];
 
-                for (uint32 k = 1; k < QUOTIENT_DEGREE_FACTOR && pos < NUM_OPENINGS_PLONK_SIGMAS; k++) {
-                    num_prod = num_prod.mul(numerator_values[pos]);
-                    den_prod = den_prod.mul(denominator_values[pos++]);
+                for (uint32 k = 1; k < QUOTIENT_DEGREE_FACTOR && pos < $NUM_OPENINGS_PLONK_SIGMAS; k++) {
+                    num_prod = num_prod.mul(ev.numerator_values[pos]);
+                    den_prod = den_prod.mul(ev.denominator_values[pos++]);
                 }
                 vm.vanishing_partial_products_terms[NUM_PARTIAL_PRODUCTS_TERMS * i + j] = accs[j].mul(num_prod).sub(accs[j + 1].mul(den_prod));
             }
@@ -403,24 +396,24 @@ contract Plonky2Verifier {
         return rev_num >> 1;
     }
 
-    function reduce1(Proof calldata proof, uint64[2] memory alpha) internal pure returns (uint64[2] memory evals) {
-        for (uint32 i = NUM_OPENINGS_QUOTIENT_POLYS; i > 0; i --) {
-            evals = le_bytes16_to_ext(proof.openings_quotient_polys[i - 1]).add(evals.mul(alpha));
+    function reduce1(bytes calldata proof, uint64[2] memory alpha) internal pure returns (uint64[2] memory evals) {
+        for (uint32 i = $NUM_OPENINGS_QUOTIENT_POLYS; i > 0; i --) {
+            evals = le_bytes16_to_ext(proof.get_openings_quotient_polys(i - 1)).add(evals.mul(alpha));
         }
-        for (uint32 i = NUM_OPENINGS_PARTIAL_PRODUCTS; i > 0; i --) {
-            evals = le_bytes16_to_ext(proof.openings_partial_products[i - 1]).add(evals.mul(alpha));
+        for (uint32 i = $NUM_OPENINGS_PARTIAL_PRODUCTS; i > 0; i --) {
+            evals = le_bytes16_to_ext(proof.get_openings_partial_products(i - 1)).add(evals.mul(alpha));
         }
-        for (uint32 i = NUM_OPENINGS_PLONK_ZS; i > 0; i --) {
-            evals = le_bytes16_to_ext(proof.openings_plonk_zs[i - 1]).add(evals.mul(alpha));
+        for (uint32 i = $NUM_OPENINGS_PLONK_ZS0; i > 0; i --) {
+            evals = le_bytes16_to_ext(proof.get_openings_plonk_zs(i - 1)).add(evals.mul(alpha));
         }
-        for (uint32 i = NUM_OPENINGS_WIRES; i > 0; i --) {
-            evals = le_bytes16_to_ext(proof.openings_wires[i - 1]).add(evals.mul(alpha));
+        for (uint32 i = $NUM_OPENINGS_WIRES; i > 0; i --) {
+            evals = le_bytes16_to_ext(proof.get_openings_wires(i - 1)).add(evals.mul(alpha));
         }
-        for (uint32 i = NUM_OPENINGS_PLONK_SIGMAS; i > 0; i --) {
-            evals = le_bytes16_to_ext(proof.openings_plonk_sigmas[i - 1]).add(evals.mul(alpha));
+        for (uint32 i = $NUM_OPENINGS_PLONK_SIGMAS; i > 0; i --) {
+            evals = le_bytes16_to_ext(proof.get_openings_plonk_sigmas(i - 1)).add(evals.mul(alpha));
         }
-        for (uint32 i = NUM_OPENINGS_CONSTANTS; i > 0; i --) {
-            evals = le_bytes16_to_ext(proof.openings_constants[i - 1]).add(evals.mul(alpha));
+        for (uint32 i = $NUM_OPENINGS_CONSTANTS; i > 0; i --) {
+            evals = le_bytes16_to_ext(proof.get_openings_constants(i - 1)).add(evals.mul(alpha));
         }
     }
 
@@ -501,19 +494,26 @@ contract Plonky2Verifier {
         return l_x.mul(sum);
     }
 
-    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges) internal view returns (bool) {
+    struct VerifyFriProofVar {
+        uint64[2][2] precomputed_reduced_evals;
+        uint64[2] zeta_next;
+        uint64[2] old_eval;
+        uint64[2] subgroup_x;
+        uint32[NUM_REDUCTION_ARITY_BITS] arity_bits;
+    }
+
+    function verify_fri_proof(Proof calldata proof, ProofChallenges memory challenges, bytes calldata proof2) internal view returns (bool) {
         // Precomputed reduced openings
-        uint64[2][2] memory precomputed_reduced_evals;
-        precomputed_reduced_evals[0] = reduce1(proof, challenges.fri_alpha);
-        for (uint32 i = NUM_OPENINGS_PLONK_ZS_NEXT; i > 0; i --) {
-            precomputed_reduced_evals[1] = le_bytes16_to_ext(proof.openings_plonk_zs_next[i - 1]).add(precomputed_reduced_evals[1].mul(challenges.fri_alpha));
+        VerifyFriProofVar memory vp;
+        vp.precomputed_reduced_evals[0] = reduce1(proof2, challenges.fri_alpha);
+        for (uint32 i = $NUM_OPENINGS_PLONK_ZS_NEXT; i > 0; i --) {
+            vp.precomputed_reduced_evals[1] = le_bytes16_to_ext(proof2.get_openings_plonk_zs_next(i - 1)).add(vp.precomputed_reduced_evals[1].mul(challenges.fri_alpha));
         }
-        uint64[2] memory zeta_next;
         {
             uint64[2] memory g;
             g[0] = $G_FROM_DEGREE_BITS_0;
             g[1] = $G_FROM_DEGREE_BITS_1;
-            zeta_next = g.mul(challenges.plonk_zeta);
+            vp.zeta_next = g.mul(challenges.plonk_zeta);
         }
         for (uint32 round = 0; round < NUM_FRI_QUERY_ROUND; round++) {
             if (!verify_merkle_proof_to_cap_memory(challenges.fri_query_indices[round],
@@ -544,30 +544,27 @@ contract Plonky2Verifier {
                 return false;
             }
 
-            uint64[2] memory old_eval;
-            uint64[2] memory subgroup_x;
             {
                 uint64[2] memory sum;
-                subgroup_x[0] = GoldilocksFieldLib.mul($MULTIPLICATIVE_GROUP_GENERATOR,
+                vp.subgroup_x[0] = GoldilocksFieldLib.mul($MULTIPLICATIVE_GROUP_GENERATOR,
                     GoldilocksFieldLib.exp($PRIMITIVE_ROOT_OF_UNITY_LDE,
                     reverse_bits(challenges.fri_query_indices[round], $LOG_SIZE_OF_LDE_DOMAIN)));
 
                 sum = challenges.fri_alpha.exp(NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_V + NUM_FRI_QUERY_INIT_WIRES_V +
                 NUM_FRI_QUERY_INIT_ZS_PARTIAL_V + NUM_FRI_QUERY_INIT_ZS_PARTIAL_V).mul(sum);
-                sum = sum.add(reduce2(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[0])
-                .div(subgroup_x.sub(challenges.plonk_zeta)));
+                sum = sum.add(reduce2(proof, round, challenges.fri_alpha).sub(vp.precomputed_reduced_evals[0])
+                .div(vp.subgroup_x.sub(challenges.plonk_zeta)));
 
                 sum = challenges.fri_alpha.exp(NUM_CHALLENGES).mul(sum);
-                sum = sum.add(reduce3(proof, round, challenges.fri_alpha).sub(precomputed_reduced_evals[1])
-                .div(subgroup_x.sub(zeta_next)));
+                sum = sum.add(reduce3(proof, round, challenges.fri_alpha).sub(vp.precomputed_reduced_evals[1])
+                .div(vp.subgroup_x.sub(vp.zeta_next)));
 
-                old_eval = sum.mul(subgroup_x);
+                vp.old_eval = sum.mul(vp.subgroup_x);
             }
-            uint32[NUM_REDUCTION_ARITY_BITS] memory arity_bits;
-            get_reduction_arity_bits(arity_bits);
+            get_reduction_arity_bits(vp.arity_bits);
             for (uint32 i = 0; i < NUM_REDUCTION_ARITY_BITS; i++) {
-                uint32 arity = uint32(1 << arity_bits[i]);
-                uint32 coset_index = challenges.fri_query_indices[round] >> arity_bits[i];
+                uint32 arity = uint32(1 << vp.arity_bits[i]);
+                uint32 coset_index = challenges.fri_query_indices[round] >> vp.arity_bits[i];
                 uint32 x_index_within_coset = challenges.fri_query_indices[round] & (arity - 1);
                 uint64[2] memory eval;
                 if (i == 0) {
@@ -575,11 +572,11 @@ contract Plonky2Verifier {
                 } else {
                     eval = le_bytes16_to_ext(proof.fri_query_step1_v[round][x_index_within_coset]);
                 }
-                if (!eval.equal(old_eval)) return false;
+                if (!eval.equal(vp.old_eval)) return false;
                 {
                     uint64[2][16] memory points;
-                    get_points(points, arity_bits[i], x_index_within_coset, subgroup_x[0]);
-                    old_eval = compute_evaluation(proof, challenges.fri_betas[i], round, i, arity_bits[i], points);
+                    get_points(points, vp.arity_bits[i], x_index_within_coset, vp.subgroup_x[0]);
+                    vp.old_eval = compute_evaluation(proof, challenges.fri_betas[i], round, i, vp.arity_bits[i], points);
                 }
 
                 if (i == 0 && !verify_merkle_proof_to_cap_step0(proof, coset_index, round)) {
@@ -590,17 +587,17 @@ contract Plonky2Verifier {
                 }
 
                 // Update the point x to x^arity.
-                subgroup_x[0] = subgroup_x[0].exp_power_of_2(arity_bits[i]);
+                vp.subgroup_x[0] = vp.subgroup_x[0].exp_power_of_2(vp.arity_bits[i]);
                 challenges.fri_query_indices[round] = coset_index;
             }
 
+            uint64[2] memory final_eval;
             // Final check of FRI. After all the reductions, we check that the final polynomial is equal
             // to the one sent by the prover.
-            uint64[2] memory final_eval;
             for (uint32 i = NUM_FRI_FINAL_POLY_EXT_V; i > 0; i--) {
-                final_eval = le_bytes16_to_ext(proof.fri_final_poly_ext_v[i - 1]).add(final_eval.mul(subgroup_x));
+                final_eval = le_bytes16_to_ext(proof.fri_final_poly_ext_v[i - 1]).add(final_eval.mul(vp.subgroup_x));
             }
-            if (!old_eval.equal(final_eval)) return false;
+            if (!vp.old_eval.equal(final_eval)) return false;
         }
         return true;
     }
@@ -613,11 +610,11 @@ contract Plonky2Verifier {
         return res;
     }
 
-    function verify(Proof calldata proof_with_public_inputs) public view returns (bool) {
+    function verify(Proof calldata proof_with_public_inputs, bytes calldata proof) public view returns (bool) {
         require(proof_with_public_inputs.fri_final_poly_ext_v.length == NUM_FRI_FINAL_POLY_EXT_V);
 
         ProofChallenges memory challenges;
-        get_challenges(proof_with_public_inputs, challenges);
+        get_challenges(proof_with_public_inputs, challenges, proof);
 
         require(leading_zeros(challenges.fri_pow_response) >= $MIN_FRI_POW_RESPONSE);
 
@@ -625,7 +622,7 @@ contract Plonky2Verifier {
             uint64[2][NUM_CHALLENGES] memory zeta;
             {
                 VanishingTerms memory vm;
-                eval_vanishing_poly(proof_with_public_inputs, challenges, vm);
+                eval_vanishing_poly(proof, challenges, vm);
                 for (uint32 i = 0; i < NUM_CHALLENGES; i ++) {
                     uint64[2] memory alpha;
                     alpha[0] = challenges.plonk_alphas[i];
@@ -642,19 +639,19 @@ contract Plonky2Verifier {
             }
             uint64[2] memory zeta_pow_deg = challenges.plonk_zeta.exp_power_of_2(DEGREE_BITS);
             uint64[2] memory z_h_zeta = zeta_pow_deg.sub(GoldilocksExtLib.one());
-            for (uint i = 0; i < NUM_CHALLENGES; i++) {
+            for (uint32 i = 0; i < NUM_CHALLENGES; i++) {
                 uint64[2][QUOTIENT_DEGREE_FACTOR] memory terms;
-                for (uint j = 0; j < QUOTIENT_DEGREE_FACTOR; j++) {
-                    terms[j] = le_bytes16_to_ext(proof_with_public_inputs.openings_quotient_polys[i * QUOTIENT_DEGREE_FACTOR + j]);
+                for (uint32 j = 0; j < QUOTIENT_DEGREE_FACTOR; j++) {
+                    terms[j] = le_bytes16_to_ext(proof.get_openings_quotient_polys(i * QUOTIENT_DEGREE_FACTOR + j));
                 }
                 if (!zeta[i].equal(z_h_zeta.mul(reduce_with_powers(terms, zeta_pow_deg)))) return false;
             }
         }
 
-        return verify_fri_proof(proof_with_public_inputs, challenges);
+        return verify_fri_proof(proof_with_public_inputs, challenges, proof);
     }
 
-    function execute_verify(Proof calldata proof_with_public_inputs) external {
-        require(verify(proof_with_public_inputs));
+    function execute_verify(Proof calldata proof_with_public_inputs, bytes calldata proof) external {
+        require(verify(proof_with_public_inputs, proof));
     }
 }

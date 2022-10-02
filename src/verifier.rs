@@ -268,7 +268,7 @@ pub fn generate_solidity_verifier<
     conf: &VerifierConfig,
     common: &CommonCircuitData<F, C, D>,
     verifier_only: &VerifierOnlyCircuitData<C, D>,
-) -> anyhow::Result<(String, String)> {
+) -> anyhow::Result<(String, String, String)> {
     assert_eq!(
         25,
         C::Hasher::HASH_SIZE,
@@ -601,7 +601,45 @@ pub fn generate_solidity_verifier<
     gates_lib = gates_lib.replace("$D", &*D.to_string());
     gates_lib = gates_lib.replace("$F_EXT_W", &*F::W.to_basefield_array()[0].to_string());
 
-    Ok((contract, gates_lib))
+    // Load proof template
+    let mut proof_lib = std::fs::read_to_string("./src/template_proof.sol")
+        .expect("Something went wrong reading the file");
+
+    // total size: 75
+    let mut proof_size: usize =
+        (conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap + conf.num_quotient_polys_cap)
+            * conf.hash_size;
+    proof_lib = proof_lib.replace("$OPENINGS_CONSTANTS_PTR", &*proof_size.to_string());
+
+    proof_size += conf.num_openings_constants * conf.ext_field_size;
+    proof_lib = proof_lib.replace("$OPENINGS_PLONK_SIGMAS_PTR", &*proof_size.to_string());
+
+    proof_size += conf.num_openings_plonk_sigmas * conf.ext_field_size;
+    proof_lib = proof_lib.replace("$OPENINGS_WIRES_PTR", &*proof_size.to_string());
+
+    proof_size += conf.num_openings_wires * conf.ext_field_size;
+    proof_lib = proof_lib.replace("$OPENINGS_PLONK_ZS_PTR", &*proof_size.to_string());
+
+    proof_size += conf.num_openings_plonk_zs * conf.ext_field_size;
+    proof_lib = proof_lib.replace("$OPENINGS_PLONK_ZS_NEXT_PTR", &*proof_size.to_string());
+
+    proof_size += conf.num_openings_plonk_zs_next * conf.ext_field_size;
+    proof_lib = proof_lib.replace("$OPENINGS_PARTIAL_PRODUCTS_PTR", &*proof_size.to_string());
+
+    proof_size += conf.num_openings_partial_products * conf.ext_field_size;
+    proof_lib = proof_lib.replace("$OPENINGS_QUOTIENT_POLYS_PTR", &*proof_size.to_string());
+
+    // total size: 3355
+    // proof_size += (conf.num_openings_constants
+    //     + conf.num_openings_plonk_sigmas
+    //     + conf.num_openings_wires
+    //     + conf.num_openings_plonk_zs
+    //     + conf.num_openings_plonk_zs_next
+    //     + conf.num_openings_partial_products
+    //     + conf.num_openings_quotient_polys)
+    //     * conf.ext_field_size;
+
+    Ok((contract, gates_lib, proof_lib))
 }
 
 #[cfg(test)]
@@ -703,12 +741,14 @@ mod tests {
         let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 0)?;
 
         let conf = generate_verifier_config(&proof)?;
-        let (contract, gates_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
+        let (contract, gates_lib, proof_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
         sol_file = File::create("./contract/contracts/GatesLib.sol")?;
         sol_file.write_all(gates_lib.as_bytes())?;
+        sol_file = File::create("./contract/contracts/ProofLib.sol")?;
+        sol_file.write_all(proof_lib.as_bytes())?;
 
         let proof_base64 = generate_proof_base64(&proof, &conf)?;
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
@@ -758,12 +798,14 @@ mod tests {
         let (proof, vd, cd) = dummy_proof::<F, KC2, D>(&final_config, 4_000, 4)?;
 
         let conf = generate_verifier_config(&proof)?;
-        let (contract, gates_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
+        let (contract, gates_lib, proof_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
         sol_file = File::create("./contract/contracts/GatesLib.sol")?;
         sol_file.write_all(gates_lib.as_bytes())?;
+        sol_file = File::create("./contract/contracts/ProofLib.sol")?;
+        sol_file.write_all(proof_lib.as_bytes())?;
 
         let proof_base64 = generate_proof_base64(&proof, &conf)?;
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
@@ -821,12 +863,14 @@ mod tests {
             recursive_proof::<F, KC2, C, D>(proof, vd, cd, &final_config, None, true, true)?;
 
         let conf = generate_verifier_config(&proof)?;
-        let (contract, gates_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
+        let (contract, gates_lib, proof_lib) = generate_solidity_verifier(&conf, &cd, &vd)?;
 
         let mut sol_file = File::create("./contract/contracts/Verifier.sol")?;
         sol_file.write_all(contract.as_bytes())?;
         sol_file = File::create("./contract/contracts/GatesLib.sol")?;
         sol_file.write_all(gates_lib.as_bytes())?;
+        sol_file = File::create("./contract/contracts/ProofLib.sol")?;
+        sol_file.write_all(proof_lib.as_bytes())?;
 
         let proof_base64 = generate_proof_base64(&proof, &conf)?;
         let proof_json = "[ \"".to_owned() + &proof_base64 + &"\" ]";
