@@ -3,17 +3,17 @@ pragma solidity ^0.8.9;
 
 library ProofLib {
     //    struct Proof {
-    //        bytes25[] wires_cap;
-    //        bytes25[] plonk_zs_partial_products_cap;
-    //        bytes25[] quotient_polys_cap;
+    //  v     bytes25[] wires_cap;
+    //  v     bytes25[] plonk_zs_partial_products_cap;
+    //  v     bytes25[] quotient_polys_cap;
     //
-    //  v      bytes16[] openings_constants;
-    //  v      bytes16[] openings_plonk_sigmas;
-    //  v      bytes16[] openings_wires;
-    //  v      bytes16[] openings_plonk_zs;
-    //  v      bytes16[] openings_plonk_zs_next;
-    //  v      bytes16[] openings_partial_products;
-    //  v      bytes16[] openings_quotient_polys;
+    //  v     bytes16[] openings_constants;
+    //  v     bytes16[] openings_plonk_sigmas;
+    //  v     bytes16[] openings_wires;
+    //  v     bytes16[] openings_plonk_zs;
+    //  v     bytes16[] openings_plonk_zs_next;
+    //  v     bytes16[] openings_partial_products;
+    //  v     bytes16[] openings_quotient_polys;
     //
     //        bytes25[][] fri_commit_phase_merkle_caps;
     //  v     bytes8[][] fri_query_init_constants_sigmas_v;
@@ -33,6 +33,18 @@ library ProofLib {
     //        bytes8 fri_pow_witness;
     //        bytes8[] public_inputs;
     //    }
+
+    function get_wires_cap(bytes calldata proof, uint32 i) internal pure returns (bytes25) {
+        return bytes25(proof[i * 25 :]);
+    }
+
+    function get_plonk_zs_partial_products_cap(bytes calldata proof, uint32 i) internal pure returns (bytes25) {
+        return bytes25(proof[$PLONK_ZS_PARTIAL_PRODUCTS_CAP_PTR + i * 25 :]);
+    }
+
+    function get_quotient_polys_cap(bytes calldata proof, uint32 i) internal pure returns (bytes25) {
+        return bytes25(proof[$QUOTIENT_POLYS_CAP_PTR + i * 25 :]);
+    }
 
     function get_openings_constants(bytes calldata proof, uint32 i) internal pure returns (bytes16) {
         return bytes16(proof[$OPENINGS_CONSTANTS_PTR + i * 16 :]);
@@ -87,13 +99,19 @@ library ProofLib {
         return bytes25(proof[$FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_CONSTANTS_SIGMAS_P_PTR + i * 25 :]);
     }
 
-    function verify_merkle_proof_to_cap_init_constants_sigmas(bytes calldata proof, uint32 r, uint32 leaf_index, bytes25[] memory merkle_caps) internal pure returns (bool) {
+    function get_sigma_cap() internal pure returns (bytes25[] memory) {
+        bytes25[] memory sc = new bytes25[]($SIGMA_CAP_COUNT);
+        $SET_SIGMA_CAP;
+        return sc;
+    }
+
+    function verify_merkle_proof_to_cap_init_constants_sigmas(bytes calldata proof, uint32 r, uint32 leaf_index) internal pure returns (bool) {
         bytes25 hash;
         uint32 new_leaf_index;
         (hash, new_leaf_index) = get_fri_merkle_proof_to_cap(proof, $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r,
             $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_CONSTANTS_SIGMAS_P_PTR,
             $NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P, leaf_index);
-        return hash == merkle_caps[new_leaf_index];
+        return hash == get_sigma_cap()[new_leaf_index];
     }
 
     function get_fri_query_init_wires_v(bytes calldata proof, uint32 r, uint32 i) internal pure returns (bytes8) {
@@ -104,13 +122,13 @@ library ProofLib {
         return bytes25(proof[$FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_WIRES_P_PTR + i * 25 :]);
     }
 
-    function verify_merkle_proof_to_cap_init_wires(bytes calldata proof, uint32 r, uint32 leaf_index, bytes25[] calldata merkle_caps) internal pure returns (bool) {
+    function verify_merkle_proof_to_cap_init_wires(bytes calldata proof, uint32 r, uint32 leaf_index) internal pure returns (bool) {
         bytes25 hash;
         uint32 new_leaf_index;
         (hash, new_leaf_index) = get_fri_merkle_proof_to_cap(proof, $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_WIRES_V_PTR,
             $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_WIRES_P_PTR,
             $NUM_FRI_QUERY_INIT_WIRES_P, leaf_index);
-        return hash == merkle_caps[new_leaf_index];
+        return hash == get_wires_cap(proof, new_leaf_index);
     }
 
     function get_fri_query_init_zs_partial_v(bytes calldata proof, uint32 r, uint32 i) internal pure returns (bytes8) {
@@ -121,13 +139,13 @@ library ProofLib {
         return bytes25(proof[$FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_ZS_PARTIAL_P_PTR + i * 25 :]);
     }
 
-    function verify_merkle_proof_to_cap_init_zs_partial(bytes calldata proof, uint32 r, uint32 leaf_index, bytes25[] calldata merkle_caps) internal pure returns (bool) {
+    function verify_merkle_proof_to_cap_init_zs_partial(bytes calldata proof, uint32 r, uint32 leaf_index) internal pure returns (bool) {
         bytes25 hash;
         uint32 new_leaf_index;
         (hash, new_leaf_index) = get_fri_merkle_proof_to_cap(proof, $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_ZS_PARTIAL_V_PTR,
             $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_ZS_PARTIAL_P_PTR,
             $NUM_FRI_QUERY_INIT_ZS_PARTIAL_P, leaf_index);
-        return hash == merkle_caps[new_leaf_index];
+        return hash == get_plonk_zs_partial_products_cap(proof, new_leaf_index);
     }
 
     function get_fri_query_init_quotient_v(bytes calldata proof, uint32 r, uint32 i) internal pure returns (bytes8) {
@@ -138,13 +156,13 @@ library ProofLib {
         return bytes25(proof[$FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_QUOTIENT_P_PTR + i * 25 :]);
     }
 
-    function verify_merkle_proof_to_cap_init_quotient(bytes calldata proof, uint32 r, uint32 leaf_index, bytes25[] calldata merkle_caps) internal pure returns (bool) {
+    function verify_merkle_proof_to_cap_init_quotient(bytes calldata proof, uint32 r, uint32 leaf_index) internal pure returns (bool) {
         bytes25 hash;
         uint32 new_leaf_index;
         (hash, new_leaf_index) = get_fri_merkle_proof_to_cap(proof, $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_QUOTIENT_V_PTR,
             $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $INIT_QUOTIENT_P_PTR,
             $NUM_FRI_QUERY_INIT_QUOTIENT_P, leaf_index);
-        return hash == merkle_caps[new_leaf_index];
+        return hash == get_quotient_polys_cap(proof, new_leaf_index);
     }
 
     function get_fri_query_step0_v(bytes calldata proof, uint32 r, uint32 i) internal pure returns (bytes16) {

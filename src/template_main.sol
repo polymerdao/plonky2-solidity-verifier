@@ -17,12 +17,6 @@ contract Plonky2Verifier {
     using GoldilocksExtLib for uint64[2];
     using ProofLib for bytes;
 
-    uint32 constant SIGMAS_CAP_COUNT = $SIGMA_CAP_COUNT;
-
-    uint32 constant NUM_WIRES_CAP = $NUM_WIRES_CAP;
-    uint32 constant NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP = $NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP;
-    uint32 constant NUM_QUOTIENT_POLYS_CAP = $NUM_QUOTIENT_POLYS_CAP;
-
     bytes25 constant CIRCUIT_DIGEST = $CIRCUIT_DIGEST;
     uint32 constant NUM_CHALLENGES = $NUM_CHALLENGES;
     uint32 constant FRI_RATE_BITS = $FRI_RATE_BITS;
@@ -34,10 +28,6 @@ contract Plonky2Verifier {
     uint32 constant NUM_SELECTORS = $NUM_SELECTORS;
 
     struct Proof {
-        bytes25[] wires_cap;
-        bytes25[] plonk_zs_partial_products_cap;
-        bytes25[] quotient_polys_cap;
-
         bytes25[][] fri_commit_phase_merkle_caps;
 
         bytes16[] fri_final_poly_ext_v;
@@ -55,12 +45,6 @@ contract Plonky2Verifier {
         uint64 fri_pow_response;
         uint32[$NUM_FRI_QUERY_ROUND] fri_query_indices;
         bytes8[4] public_input_hash;
-    }
-
-    function get_sigma_cap() internal pure returns (bytes25[] memory) {
-        bytes25[] memory sc = new bytes25[](SIGMAS_CAP_COUNT);
-        $SET_SIGMA_CAP;
-        return sc;
     }
 
     function get_k_is(uint64[$NUM_OPENINGS_PLONK_SIGMAS] memory k_is) internal pure {
@@ -133,19 +117,19 @@ contract Plonky2Verifier {
         for (uint32 i = 0; i < 4; i++) {
             challenger.observe_element(challenges.public_input_hash[i]);
         }
-        for (uint32 i = 0; i < NUM_WIRES_CAP; i++) {
-            challenger.observe_hash(proof.wires_cap[i]);
+        for (uint32 i = 0; i < $NUM_WIRES_CAP; i++) {
+            challenger.observe_hash(proof2.get_wires_cap(i));
         }
         challenges.plonk_betas = challenger.get_challenges(NUM_CHALLENGES);
         challenges.plonk_gammas = challenger.get_challenges(NUM_CHALLENGES);
 
-        for (uint32 i = 0; i < NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP; i++) {
-            challenger.observe_hash(proof.plonk_zs_partial_products_cap[i]);
+        for (uint32 i = 0; i < $NUM_PLONK_ZS_PARTIAL_PRODUCTS_CAP; i++) {
+            challenger.observe_hash(proof2.get_plonk_zs_partial_products_cap(i));
         }
         challenges.plonk_alphas = challenger.get_challenges(NUM_CHALLENGES);
 
-        for (uint32 i = 0; i < NUM_QUOTIENT_POLYS_CAP; i++) {
-            challenger.observe_hash(proof.quotient_polys_cap[i]);
+        for (uint32 i = 0; i < $NUM_QUOTIENT_POLYS_CAP; i++) {
+            challenger.observe_hash(proof2.get_quotient_polys_cap(i));
         }
         challenges.plonk_zeta = challenger.get_extension_challenge();
 
@@ -409,23 +393,19 @@ contract Plonky2Verifier {
         for (uint32 round = 0; round < $NUM_FRI_QUERY_ROUND; round++) {
             {
                 uint32 leaf_index = challenges.fri_query_indices[round];
-                if (proof2.verify_merkle_proof_to_cap_init_constants_sigmas(round, leaf_index,
-                    get_sigma_cap())) {
+                if (proof2.verify_merkle_proof_to_cap_init_constants_sigmas(round, leaf_index)) {
                     return false;
                 }
 
-                if (proof2.verify_merkle_proof_to_cap_init_wires(round, leaf_index,
-                    proof.wires_cap)) {
+                if (proof2.verify_merkle_proof_to_cap_init_wires(round, leaf_index)) {
                     return false;
                 }
 
-                if (proof2.verify_merkle_proof_to_cap_init_zs_partial(round, leaf_index,
-                    proof.plonk_zs_partial_products_cap)) {
+                if (proof2.verify_merkle_proof_to_cap_init_zs_partial(round, leaf_index)) {
                     return false;
                 }
 
-                if (proof2.verify_merkle_proof_to_cap_init_quotient(round, leaf_index,
-                    proof.quotient_polys_cap)) {
+                if (proof2.verify_merkle_proof_to_cap_init_quotient(round, leaf_index)) {
                     return false;
                 }
             }

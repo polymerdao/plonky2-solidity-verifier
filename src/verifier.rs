@@ -299,17 +299,6 @@ pub fn generate_solidity_verifier<
     }
     contract = contract.replace("$HASH_PROOF_PUBLIC_INPUTS", &*proof_public_inputs_str);
 
-    let sigma_cap_count = 1 << common.config.fri_config.cap_height;
-    contract = contract.replace("$SIGMA_CAP_COUNT", &*sigma_cap_count.to_string());
-
-    let mut sigma_cap_str = "".to_owned();
-    for i in 0..sigma_cap_count {
-        let cap = verifier_only.constants_sigmas_cap.0[i];
-        let hash = encode_hex(&cap.to_bytes());
-        sigma_cap_str += &*("        sc[".to_owned() + &*i.to_string() + "] = 0x" + &*hash + ";\n");
-    }
-    contract = contract.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
-
     let k_is = &common.k_is;
     let mut k_is_str = "".to_owned();
     for i in 0..k_is.len() {
@@ -605,7 +594,20 @@ pub fn generate_solidity_verifier<
     let mut proof_lib = std::fs::read_to_string("./src/template_proof.sol")
         .expect("Something went wrong reading the file");
 
-    // total size: 75
+    let sigma_cap_count = 1 << common.config.fri_config.cap_height;
+    proof_lib = proof_lib.replace("$SIGMA_CAP_COUNT", &*sigma_cap_count.to_string());
+
+    let mut sigma_cap_str = "".to_owned();
+    for i in 0..sigma_cap_count {
+        let cap = verifier_only.constants_sigmas_cap.0[i];
+        let hash = encode_hex(&cap.to_bytes());
+        sigma_cap_str += &*("        sc[".to_owned() + &*i.to_string() + "] = 0x" + &*hash + ";\n");
+    }
+    proof_lib = proof_lib.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
+
+    proof_lib = proof_lib.replace("$PLONK_ZS_PARTIAL_PRODUCTS_CAP_PTR", &*(conf.num_wires_cap * conf.hash_size).to_string());
+    proof_lib = proof_lib.replace("$QUOTIENT_POLYS_CAP_PTR", &*((conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap) * conf.hash_size).to_string());
+
     let mut proof_size: usize =
         (conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap + conf.num_quotient_polys_cap)
             * conf.hash_size;
