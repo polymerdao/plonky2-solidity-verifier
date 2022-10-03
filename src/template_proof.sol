@@ -74,6 +74,10 @@ library ProofLib {
         return bytes16(proof[$OPENINGS_QUOTIENT_POLYS_PTR + i * 16 :]);
     }
 
+    function get_fri_commit_phase_merkle_caps(bytes calldata proof, uint32 i, uint32 j) internal pure returns (bytes25) {
+        return bytes25(proof[$FRI_COMMIT_PHASE_MERKLE_CAPS_PTR + i * $FRI_COMMIT_ROUND_SIZE + j * 25 :]);
+    }
+
     function get_fri_merkle_proof_to_cap(bytes calldata proof, uint32 v_start, uint32 p_start, uint32 merkle_proof_len,
         uint32 leaf_index) internal pure returns (bytes25, uint32) {
         bytes32 current_digest = keccak256(proof[v_start : p_start]);
@@ -173,13 +177,13 @@ library ProofLib {
         return bytes25(proof[$FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $STEP0_P_PTR + i * 25 :]);
     }
 
-    function verify_merkle_proof_to_cap_step0(bytes calldata proof, uint32 r, uint32 leaf_index, bytes25[] calldata merkle_caps) internal pure returns (bool) {
+    function verify_merkle_proof_to_cap_step0(bytes calldata proof, uint32 r, uint32 leaf_index) internal pure returns (bool) {
         bytes25 hash;
         uint32 new_leaf_index;
         (hash, new_leaf_index) = get_fri_merkle_proof_to_cap(proof, $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $STEP0_V_PTR,
             $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $STEP0_P_PTR,
             $NUM_FRI_QUERY_STEP0_P, leaf_index);
-        return hash == merkle_caps[new_leaf_index];
+        return hash == get_fri_commit_phase_merkle_caps(proof, 0, new_leaf_index);
     }
 
     function get_fri_query_step1_v(bytes calldata proof, uint32 r, uint32 i) internal pure returns (bytes16) {
@@ -190,12 +194,12 @@ library ProofLib {
         return bytes25(proof[$FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $STEP1_P_PTR + i * 25 :]);
     }
 
-    function verify_merkle_proof_to_cap_step1(bytes calldata proof, uint32 r, uint32 leaf_index, bytes25[] calldata merkle_caps) internal pure returns (bool) {
+    function verify_merkle_proof_to_cap_step1(bytes calldata proof, uint32 r, uint32 leaf_index) internal pure returns (bool) {
         bytes25 hash;
         uint32 new_leaf_index;
         (hash, new_leaf_index) = get_fri_merkle_proof_to_cap(proof, $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $STEP1_V_PTR,
             $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $STEP1_P_PTR,
             $NUM_FRI_QUERY_STEP1_P, leaf_index);
-        return hash == merkle_caps[new_leaf_index];
+        return hash == get_fri_commit_phase_merkle_caps(proof, 1, new_leaf_index);
     }
 }

@@ -171,7 +171,6 @@ describe("Verifier", function () {
             console.assert(pos == buf.length);
 
             let input: Plonky2Verifier.ProofStruct = {
-                fri_commit_phase_merkle_caps,
                 fri_final_poly_ext_v,
                 fri_pow_witness,
                 public_inputs,

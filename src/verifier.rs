@@ -605,8 +605,15 @@ pub fn generate_solidity_verifier<
     }
     proof_lib = proof_lib.replace("        $SET_SIGMA_CAP;\n", &*sigma_cap_str);
 
-    proof_lib = proof_lib.replace("$PLONK_ZS_PARTIAL_PRODUCTS_CAP_PTR", &*(conf.num_wires_cap * conf.hash_size).to_string());
-    proof_lib = proof_lib.replace("$QUOTIENT_POLYS_CAP_PTR", &*((conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap) * conf.hash_size).to_string());
+    proof_lib = proof_lib.replace(
+        "$PLONK_ZS_PARTIAL_PRODUCTS_CAP_PTR",
+        &*(conf.num_wires_cap * conf.hash_size).to_string(),
+    );
+    proof_lib = proof_lib.replace(
+        "$QUOTIENT_POLYS_CAP_PTR",
+        &*((conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap) * conf.hash_size)
+            .to_string(),
+    );
 
     let mut proof_size: usize =
         (conf.num_wires_cap + conf.num_plonk_zs_partial_products_cap + conf.num_quotient_polys_cap)
@@ -632,6 +639,15 @@ pub fn generate_solidity_verifier<
     proof_lib = proof_lib.replace("$OPENINGS_QUOTIENT_POLYS_PTR", &*proof_size.to_string());
 
     proof_size += conf.num_openings_quotient_polys * conf.ext_field_size;
+
+    proof_lib = proof_lib.replace(
+        "$FRI_COMMIT_PHASE_MERKLE_CAPS_PTR",
+        &*proof_size.to_string(),
+    );
+    proof_lib = proof_lib.replace(
+        "$FRI_COMMIT_ROUND_SIZE",
+        &*(conf.fri_commit_merkle_cap_height * conf.hash_size).to_string(),
+    );
     proof_size += (conf.num_fri_commit_round * conf.fri_commit_merkle_cap_height) * conf.hash_size;
 
     let fri_query_round_ptr = proof_size;

@@ -28,8 +28,6 @@ contract Plonky2Verifier {
     uint32 constant NUM_SELECTORS = $NUM_SELECTORS;
 
     struct Proof {
-        bytes25[][] fri_commit_phase_merkle_caps;
-
         bytes16[] fri_final_poly_ext_v;
         bytes8 fri_pow_witness;
         bytes8[] public_inputs;
@@ -159,7 +157,7 @@ contract Plonky2Verifier {
         challenges.fri_alpha = challenger.get_extension_challenge();
         for (uint32 i = 0; i < $NUM_FRI_COMMIT_ROUND; i++) {
             for (uint32 j = 0; j < $FRI_COMMIT_MERKLE_CAP_HEIGHT; j++) {
-                challenger.observe_hash(proof.fri_commit_phase_merkle_caps[i][j]);
+                challenger.observe_hash(proof2.get_fri_commit_phase_merkle_caps(i, j));
             }
             challenges.fri_betas[i] = challenger.get_extension_challenge();
         }
@@ -445,12 +443,10 @@ contract Plonky2Verifier {
                     vp.old_eval = compute_evaluation(proof2, challenges.fri_betas[i], round, i, vp.arity_bits[i], points);
                 }
 
-                if (i == 0 && proof2.verify_merkle_proof_to_cap_step0(round, coset_index,
-                    proof.fri_commit_phase_merkle_caps[0])) {
+                if (i == 0 && proof2.verify_merkle_proof_to_cap_step0(round, coset_index)) {
                     return false;
                 }
-                if (i == 1 && proof2.verify_merkle_proof_to_cap_step1(round, coset_index,
-                    proof.fri_commit_phase_merkle_caps[1])) {
+                if (i == 1 && proof2.verify_merkle_proof_to_cap_step1(round, coset_index)) {
                     return false;
                 }
 
