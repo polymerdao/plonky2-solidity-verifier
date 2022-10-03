@@ -629,15 +629,85 @@ pub fn generate_solidity_verifier<
     proof_size += conf.num_openings_partial_products * conf.ext_field_size;
     proof_lib = proof_lib.replace("$OPENINGS_QUOTIENT_POLYS_PTR", &*proof_size.to_string());
 
-    // total size: 3355
-    // proof_size += (conf.num_openings_constants
-    //     + conf.num_openings_plonk_sigmas
-    //     + conf.num_openings_wires
-    //     + conf.num_openings_plonk_zs
-    //     + conf.num_openings_plonk_zs_next
-    //     + conf.num_openings_partial_products
-    //     + conf.num_openings_quotient_polys)
-    //     * conf.ext_field_size;
+    proof_size += conf.num_openings_quotient_polys * conf.ext_field_size;
+    proof_size += (conf.num_fri_commit_round * conf.fri_commit_merkle_cap_height) * conf.hash_size;
+
+    let fri_query_round_ptr = proof_size;
+    proof_lib = proof_lib.replace("$FRI_QUERY_ROUND_PTR", &*fri_query_round_ptr.to_string());
+
+    let fri_query_round_size = (conf.num_fri_query_init_constants_sigmas_v
+        + conf.num_fri_query_init_wires_v
+        + conf.num_fri_query_init_zs_partial_v
+        + conf.num_fri_query_init_quotient_v)
+        * conf.field_size
+        + (conf.num_fri_query_init_constants_sigmas_p
+            + conf.num_fri_query_init_wires_p
+            + conf.num_fri_query_init_zs_partial_p
+            + conf.num_fri_query_init_quotient_p)
+            * conf.hash_size
+        + conf.merkle_height_size * 4
+        + conf.num_fri_query_step0_v * conf.ext_field_size
+        + conf.num_fri_query_step0_p * conf.hash_size
+        + conf.merkle_height_size
+        + conf.num_fri_query_step1_v * conf.ext_field_size
+        + conf.num_fri_query_step1_p * conf.hash_size
+        + conf.merkle_height_size;
+    proof_lib = proof_lib.replace("$FRI_QUERY_ROUND_SIZE", &*fri_query_round_size.to_string());
+
+    let mut round_ptr = conf.num_fri_query_init_constants_sigmas_v * conf.field_size + 1;
+    proof_lib = proof_lib.replace("$INIT_CONSTANTS_SIGMAS_P_PTR", &*round_ptr.to_string());
+    round_ptr += conf.num_fri_query_init_constants_sigmas_p * conf.hash_size;
+    proof_lib = proof_lib.replace("$INIT_WIRES_V_PTR", &*round_ptr.to_string());
+
+    round_ptr += conf.num_fri_query_init_wires_v * conf.field_size + 1;
+    proof_lib = proof_lib.replace("$INIT_WIRES_P_PTR", &*round_ptr.to_string());
+    round_ptr += conf.num_fri_query_init_wires_p * conf.hash_size;
+    proof_lib = proof_lib.replace("$INIT_ZS_PARTIAL_V_PTR", &*round_ptr.to_string());
+
+    round_ptr += conf.num_fri_query_init_zs_partial_v * conf.field_size + 1;
+    proof_lib = proof_lib.replace("$INIT_ZS_PARTIAL_P_PTR", &*round_ptr.to_string());
+    round_ptr += conf.num_fri_query_init_zs_partial_p * conf.hash_size;
+    proof_lib = proof_lib.replace("$INIT_QUOTIENT_V_PTR", &*round_ptr.to_string());
+
+    round_ptr += conf.num_fri_query_init_quotient_v * conf.field_size + 1;
+    proof_lib = proof_lib.replace("$INIT_QUOTIENT_P_PTR", &*round_ptr.to_string());
+    round_ptr += conf.num_fri_query_init_quotient_p * conf.hash_size;
+    proof_lib = proof_lib.replace("$STEP0_V_PTR", &*round_ptr.to_string());
+
+    round_ptr += conf.num_fri_query_step0_v * conf.ext_field_size + 1;
+    proof_lib = proof_lib.replace("$STEP0_P_PTR", &*round_ptr.to_string());
+    round_ptr += conf.num_fri_query_step0_p * conf.hash_size;
+    proof_lib = proof_lib.replace("$STEP1_V_PTR", &*round_ptr.to_string());
+
+    round_ptr += conf.num_fri_query_step1_v * conf.ext_field_size + 1;
+    proof_lib = proof_lib.replace("$STEP1_P_PTR", &*round_ptr.to_string());
+    round_ptr += conf.num_fri_query_step1_p * conf.hash_size;
+    assert_eq!(round_ptr, fri_query_round_size);
+
+    proof_lib = proof_lib.replace(
+        "$NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P",
+        &*conf.num_fri_query_init_constants_sigmas_p.to_string(),
+    );
+    proof_lib = proof_lib.replace(
+        "$NUM_FRI_QUERY_INIT_WIRES_P",
+        &*conf.num_fri_query_init_wires_p.to_string(),
+    );
+    proof_lib = proof_lib.replace(
+        "$NUM_FRI_QUERY_INIT_ZS_PARTIAL_P",
+        &*conf.num_fri_query_init_zs_partial_p.to_string(),
+    );
+    proof_lib = proof_lib.replace(
+        "$NUM_FRI_QUERY_INIT_QUOTIENT_P",
+        &*conf.num_fri_query_init_quotient_p.to_string(),
+    );
+    proof_lib = proof_lib.replace(
+        "$NUM_FRI_QUERY_STEP0_P",
+        &*conf.num_fri_query_step0_p.to_string(),
+    );
+    proof_lib = proof_lib.replace(
+        "$NUM_FRI_QUERY_STEP1_P",
+        &*conf.num_fri_query_step1_p.to_string(),
+    );
 
     Ok((contract, gates_lib, proof_lib))
 }

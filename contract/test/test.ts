@@ -1,4 +1,3 @@
-import {expect} from "chai";
 import {ethers} from "hardhat";
 import {Plonky2Verifier} from "../typechain-types";
 
@@ -176,18 +175,6 @@ describe("Verifier", function () {
                 plonk_zs_partial_products_cap,
                 quotient_polys_cap,
                 fri_commit_phase_merkle_caps,
-                fri_query_init_constants_sigmas_v,
-                fri_query_init_constants_sigmas_p,
-                fri_query_init_wires_v,
-                fri_query_init_wires_p,
-                fri_query_init_zs_partial_v,
-                fri_query_init_zs_partial_p,
-                fri_query_init_quotient_v,
-                fri_query_init_quotient_p,
-                fri_query_step0_v,
-                fri_query_step0_p,
-                fri_query_step1_v,
-                fri_query_step1_p,
                 fri_final_poly_ext_v,
                 fri_pow_witness,
                 public_inputs,
