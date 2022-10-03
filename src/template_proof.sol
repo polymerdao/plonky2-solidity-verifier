@@ -2,38 +2,6 @@
 pragma solidity ^0.8.9;
 
 library ProofLib {
-    //    struct Proof {
-    //  v     bytes25[] wires_cap;
-    //  v     bytes25[] plonk_zs_partial_products_cap;
-    //  v     bytes25[] quotient_polys_cap;
-    //
-    //  v     bytes16[] openings_constants;
-    //  v     bytes16[] openings_plonk_sigmas;
-    //  v     bytes16[] openings_wires;
-    //  v     bytes16[] openings_plonk_zs;
-    //  v     bytes16[] openings_plonk_zs_next;
-    //  v     bytes16[] openings_partial_products;
-    //  v     bytes16[] openings_quotient_polys;
-    //
-    //        bytes25[][] fri_commit_phase_merkle_caps;
-    //  v     bytes8[][] fri_query_init_constants_sigmas_v;
-    //  v     bytes25[][] fri_query_init_constants_sigmas_p;
-    //  v     bytes8[][] fri_query_init_wires_v;
-    //  v     bytes25[][] fri_query_init_wires_p;
-    //  v     bytes8[][] fri_query_init_zs_partial_v;
-    //  v     bytes25[][] fri_query_init_zs_partial_p;
-    //  v     bytes8[][] fri_query_init_quotient_v;
-    //  v     bytes25[][] fri_query_init_quotient_p;
-    //  v     bytes16[][] fri_query_step0_v;
-    //  v     bytes25[][] fri_query_step0_p;
-    //  v     bytes16[][] fri_query_step1_v;
-    //  v     bytes25[][] fri_query_step1_p;
-    //
-    //        bytes16[] fri_final_poly_ext_v;
-    //        bytes8 fri_pow_witness;
-    //        bytes8[] public_inputs;
-    //    }
-
     function get_wires_cap(bytes calldata proof, uint32 i) internal pure returns (bytes25) {
         return bytes25(proof[i * 25 :]);
     }
@@ -201,5 +169,23 @@ library ProofLib {
             $FRI_QUERY_ROUND_PTR + $FRI_QUERY_ROUND_SIZE * r + $STEP1_P_PTR,
             $NUM_FRI_QUERY_STEP1_P, leaf_index);
         return hash == get_fri_commit_phase_merkle_caps(proof, 1, new_leaf_index);
+    }
+
+    function get_fri_final_poly_ext_v(bytes calldata proof, uint32 i) internal pure returns (bytes16) {
+        return bytes16(proof[$FRI_FINAL_POLY_EXT_V_PTR + i * 16 :]);
+    }
+
+    function get_fri_pow_witness(bytes calldata proof) internal pure returns (bytes8) {
+        return bytes8(proof[$FRI_POW_WITNESS_PTR :]);
+    }
+
+    function get_public_input_hash(bytes calldata proof) internal pure returns (bytes8[4] memory res) {
+        if ($NUM_PUBLIC_INPUTS > 0) {
+            bytes32 h = sha256(proof[$PUBLIC_INPUTS_PTR :]);
+            res[0] = bytes8(h);
+            res[1] = bytes8(h << 64);
+            res[2] = bytes8(h << 128);
+            res[3] = bytes8(h << 192);
+        }
     }
 }

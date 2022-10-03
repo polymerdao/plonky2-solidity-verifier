@@ -282,23 +282,6 @@ pub fn generate_solidity_verifier<
     let mut contract = std::fs::read_to_string("./src/template_main.sol")
         .expect("Something went wrong reading the file");
 
-    let mut proof_public_inputs_str;
-    if conf.num_public_inputs == 0 {
-        proof_public_inputs_str = "0".to_owned();
-    } else {
-        proof_public_inputs_str = "sha256(abi.encodePacked(".to_owned();
-        for i in 0..conf.num_public_inputs {
-            proof_public_inputs_str +=
-                &*("proof.public_inputs[".to_owned() + &*i.to_string() + "]");
-            if i == conf.num_public_inputs - 1 {
-                proof_public_inputs_str += &*("))");
-            } else {
-                proof_public_inputs_str += &*(", ");
-            }
-        }
-    }
-    contract = contract.replace("$HASH_PROOF_PUBLIC_INPUTS", &*proof_public_inputs_str);
-
     let k_is = &common.k_is;
     let mut k_is_str = "".to_owned();
     for i in 0..k_is.len() {
@@ -426,7 +409,6 @@ pub fn generate_solidity_verifier<
         "$NUM_FRI_FINAL_POLY_EXT_V",
         &*conf.num_fri_final_poly_ext_v.to_string(),
     );
-    contract = contract.replace("$NUM_PUBLIC_INPUTS", &*conf.num_public_inputs.to_string());
     contract = contract.replace(
         "$NUM_CHALLENGES",
         &*common.config.num_challenges.to_string(),
@@ -702,6 +684,15 @@ pub fn generate_solidity_verifier<
     round_ptr += conf.num_fri_query_step1_p * conf.hash_size;
     assert_eq!(round_ptr, fri_query_round_size);
 
+    proof_size += fri_query_round_size * conf.num_fri_query_round;
+    proof_lib = proof_lib.replace("$FRI_FINAL_POLY_EXT_V_PTR", &*proof_size.to_string());
+
+    proof_size += conf.ext_field_size * conf.num_fri_final_poly_ext_v;
+    proof_lib = proof_lib.replace("$FRI_POW_WITNESS_PTR", &*proof_size.to_string());
+
+    proof_size += conf.field_size;
+    proof_lib = proof_lib.replace("$PUBLIC_INPUTS_PTR", &*proof_size.to_string());
+
     proof_lib = proof_lib.replace(
         "$NUM_FRI_QUERY_INIT_CONSTANTS_SIGMAS_P",
         &*conf.num_fri_query_init_constants_sigmas_p.to_string(),
@@ -726,6 +717,7 @@ pub fn generate_solidity_verifier<
         "$NUM_FRI_QUERY_STEP1_P",
         &*conf.num_fri_query_step1_p.to_string(),
     );
+    proof_lib = proof_lib.replace("$NUM_PUBLIC_INPUTS", &*conf.num_public_inputs.to_string());
 
     Ok((contract, gates_lib, proof_lib))
 }

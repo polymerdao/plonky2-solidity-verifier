@@ -170,12 +170,7 @@ describe("Verifier", function () {
             pos += public_inputs_size;
             console.assert(pos == buf.length);
 
-            let input: Plonky2Verifier.ProofStruct = {
-                fri_final_poly_ext_v,
-                fri_pow_witness,
-                public_inputs,
-            };
-            await verifier.execute_verify(input, buf);
+            await verifier.execute_verify(buf);
         });
     });
 
