@@ -3,6 +3,7 @@
 Updates
 -----
 
+- **10/20/2022** This repo is deprecated. Please check our latest work on plonky2-circom verifier with only 230k gas cost: https://github.com/polymerdao/plonky2-circom  
 - **10/2/2022** Current gas cost for verification of a size 50855 dummy proof is 18M.
 - **9/28/2022** Current gas cost for verification of a size 50855 dummy proof is 27M.
 - **9/27/2022** Added more gates support. Updated gas estimations.
